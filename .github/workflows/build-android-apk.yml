@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-apk-build
+  cancel-in-progress: false
+
 jobs:
   build-android:
     name: Build Android APK
