@@ -8,24 +8,46 @@ namespace AuraKitchen
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void OnSceneLoaded()
         {
-            string sceneName = SceneManager.GetActiveScene().name;
+            InitializeGlobalSystems();
 
+            string sceneName = SceneManager.GetActiveScene().name;
             if (sceneName == SceneSwitcher.Scene.GameScene.ToString())
             {
                 InitializeGameScene();
             }
         }
 
-        private static void InitializeGameScene()
+        private static void InitializeGlobalSystems()
         {
-            GameObject auraRoot = GameObject.Find("Aura_Systems");
+            GameObject auraRoot = GameObject.Find("Aura_Global_Systems");
             if (auraRoot == null)
             {
-                auraRoot = new GameObject("Aura_Systems");
+                auraRoot = new GameObject("Aura_Global_Systems");
                 Object.DontDestroyOnLoad(auraRoot);
             }
 
-            // 1. Environment & Atmosphere
+            // Backend Networking
+            if (Object.FindObjectOfType<AuraWebSocketClient>() == null)
+            {
+                auraRoot.AddComponent<AuraWebSocketClient>();
+            }
+
+            // In-Game & Menu Multiplayer Lobby (Create Room, Join, Host)
+            if (Object.FindObjectOfType<AuraMultiplayerLobbyUI>() == null)
+            {
+                auraRoot.AddComponent<AuraMultiplayerLobbyUI>();
+            }
+        }
+
+        private static void InitializeGameScene()
+        {
+            GameObject auraRoot = GameObject.Find("Aura_Game_Systems");
+            if (auraRoot == null)
+            {
+                auraRoot = new GameObject("Aura_Game_Systems");
+            }
+
+            // 1. Environment & Atmosphere (Expanded stations, dining tables)
             if (Object.FindObjectOfType<AuraKitchenEnvironment>() == null)
             {
                 auraRoot.AddComponent<AuraKitchenEnvironment>();
@@ -57,14 +79,13 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraUIManager>();
             }
 
-            // 6. Mobile & Touch Controls
+            // 6. Mobile & Touch Controls (Virtual Joystick & Action Buttons)
             if (Object.FindObjectOfType<AuraMobileControls>() == null)
             {
                 auraRoot.AddComponent<AuraMobileControls>();
             }
 
-            Debug.Log("<color=#00e5ff>[Aura Kitchen]</color> Systems initialized successfully for " + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+            Debug.Log("<color=#00e5ff>[Aura Kitchen]</color> Systems initialized successfully for " + SceneManager.GetActiveScene().name);
         }
     }
 }
-
