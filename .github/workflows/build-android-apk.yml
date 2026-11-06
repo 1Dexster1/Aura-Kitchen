@@ -1,0 +1,64 @@
+name: Build Aura Kitchen Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-Android-
+
+      - name: Build Android via GameCI
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          unityVersion: 2022.3.1f1
+          androidAppBundle: false # Produces standard APK
+          buildsPath: build
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aura-Kitchen-Android-APK
+          path: build/Android/**
+          retention-days: 14
+
+      - name: Create GitHub Release with APK
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          files: build/Android/**
+          tag_name: v1.0.0-aura
+          name: Aura Kitchen v1.0.0 APK
+          body: |
+            🎮 **Aura Kitchen - Android APK Build**
+            - 4-Player Online Co-Op & Offline Solo Play
+            - Dynamic Customer System with patience & tipping
+            - Expanded 4-Chef Kitchen Layout
+            - Mobile Touch Virtual Joystick & Action Buttons
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

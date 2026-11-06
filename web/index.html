@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aura Kitchen - 4-Player Culinary Chaos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f1117;
+      font-family: 'Outfit', sans-serif;
+      color: #fff;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* === LUXURY AURA HUD === */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 24px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .brand-card {
+      background: rgba(18, 22, 34, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 18px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(0, 229, 255, 0.1);
+      pointer-events: auto;
+    }
+
+    .brand-logo {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00e5ff 0%, #00ffa3 50%, #ffaa00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.35);
+    }
+
+    .brand-badge {
+      background: rgba(0, 229, 255, 0.15);
+      border: 1px solid #00e5ff;
+      color: #00e5ff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+
+    /* Shift & Score Pill */
+    .stat-cluster {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .hud-pill {
+      background: rgba(18, 22, 34, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 8px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 90px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .hud-pill-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8f9cae;
+      font-weight: 700;
+    }
+
+    .hud-pill-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .hud-pill-value.timer {
+      color: #00ffa3;
+    }
+
+    .hud-pill-value.timer.urgent {
+      color: #ff3838;
+      animation: pulseUrgent 0.8s infinite alternate;
+    }
+
+    .hud-pill-value.tips {
+      color: #ffd700;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+    }
+
+    .hud-pill-value.combo {
+      color: #ff7700;
+    }
+
+    @keyframes pulseUrgent {
+      from { transform: scale(1); }
+      to { transform: scale(1.12); text-shadow: 0 0 15px #ff3838; }
+    }
+
+    /* Orders Queue */
+    .orders-tray {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+      max-width: 60%;
+      overflow-x: auto;
+      padding: 4px;
+    }
+
+    .order-card {
+      background: rgba(22, 28, 44, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 10px 14px;
+      min-width: 145px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      animation: orderPop 0.4s ease-out;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+
+    @keyframes orderPop {
+      0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .order-card.urgent {
+      border-color: #ff3838;
+      box-shadow: 0 0 20px rgba(255, 56, 56, 0.4);
+    }
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .order-name {
+      color: #fff;
+    }
+
+    .order-customer-avatar {
+      font-size: 16px;
+    }
+
+    .order-ingredients {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 4px 6px;
+      border-radius: 8px;
+    }
+
+    .order-chip {
+      font-size: 14px;
+    }
+
+    .order-patience-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .order-patience-fill {
+      height: 100%;
+      width: 100%;
+      background: #00ffa3;
+      transition: width 0.2s linear, background-color 0.4s ease;
+    }
+
+    /* Chef Switcher & Mode Pill (Bottom-Left) */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
+
+    .chef-status-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .chef-card {
+      background: rgba(18, 22, 34, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .chef-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ff3344;
+      box-shadow: 0 0 10px #ff3344;
+    }
+
+    .chef-info-name {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .chef-info-role {
+      font-size: 10px;
+      color: #8f9cae;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .action-btn-pill {
+      background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(0, 255, 163, 0.2) 100%);
+      border: 1px solid #00e5ff;
+      color: #00e5ff;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 10px 18px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(0, 229, 255, 0.2);
+    }
+
+    .action-btn-pill:hover, .action-btn-pill:active {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, #00e5ff 0%, #00ffa3 100%);
+      color: #000;
+      box-shadow: 0 6px 20px rgba(0, 229, 255, 0.4);
+    }
+
+    /* === MOBILE TOUCH CONTROLS === */
+    #mobile-controls {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      pointer-events: none;
+      display: none;
+    }
+
+    .touch-joystick-zone {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      pointer-events: auto;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .touch-joystick-stick {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #00e5ff, #0088cc);
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+      transform: translate(0, 0);
+      pointer-events: none;
+    }
+
+    .touch-actions-zone {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .touch-circle-btn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: rgba(22, 28, 44, 0.85);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.1s ease;
+    }
+
+    .touch-circle-btn:active {
+      transform: scale(0.92);
+      border-color: #00e5ff;
+      background: rgba(0, 229, 255, 0.2);
+    }
+
+    .touch-circle-btn.btn-interact {
+      border-color: #00ffa3;
+      box-shadow: 0 0 15px rgba(0, 255, 163, 0.3);
+    }
+
+    .touch-circle-btn.btn-chop {
+      border-color: #ffaa00;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+    }
+
+    .touch-btn-sub {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-top: 2px;
+      color: #8f9cae;
+    }
+
+    /* === MODAL & SHIFT SUMMARY === */
+    .modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 14, 24, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-card {
+      background: rgba(22, 28, 44, 0.95);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 28px;
+      padding: 36px 42px;
+      width: 90%;
+      max-width: 480px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 229, 255, 0.2);
+      animation: modalSlide 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes modalSlide {
+      from { transform: translateY(40px) scale(0.92); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .modal-title {
+      font-size: 28px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00e5ff 0%, #ffaa00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 8px 0;
+    }
+
+    .score-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .score-box-label {
+      font-size: 11px;
+      color: #8f9cae;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .score-box-val {
+      font-size: 22px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: #ffd700;
+    }
+
+    .rank-banner {
+      background: rgba(0, 229, 255, 0.12);
+      border: 1px solid #00e5ff;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #00e5ff;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #00e5ff 0%, #00ffa3 100%);
+      border: none;
+      color: #000;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 14px;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(0, 229, 255, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(0, 229, 255, 0.5);
+    }
+
+    /* Start Menu Overlay */
+    #start-menu {
+      z-index: 120;
+    }
+
+    .mode-select-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: left;
+    }
+
+    .mode-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 14px 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .mode-card:hover, .mode-card.selected {
+      border-color: #00e5ff;
+      background: rgba(0, 229, 255, 0.12);
+      transform: translateX(4px);
+    }
+
+    .mode-card-icon {
+      font-size: 28px;
+    }
+
+    .mode-card-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .mode-card-desc {
+      font-size: 12px;
+      color: #8f9cae;
+    }
+
+    /* Notification / Toast */
+    #floating-notice {
+      position: absolute;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 229, 255, 0.2);
+      backdrop-filter: blur(12px);
+      border: 1px solid #00e5ff;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 8px 24px rgba(0, 229, 255, 0.3);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    /* Online Room & Lobby Styles */
+    .online-section {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .online-tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .online-tab-btn {
+      flex: 1;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .online-tab-btn.active {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: #00e5ff;
+      color: #00e5ff;
+    }
+    .room-code-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      letter-spacing: 4px;
+      font-weight: 900;
+      color: #00ffa3;
+      padding: 8px;
+      background: rgba(0, 255, 163, 0.1);
+      border-radius: 10px;
+      border: 1px dashed #00ffa3;
+    }
+    .lobby-players-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .lobby-chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .code-input-box {
+      display: flex;
+      gap: 8px;
+    }
+    .room-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1.5px solid rgba(0, 229, 255, 0.4);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      outline: none;
+      text-align: center;
+    }
+    .room-input:focus {
+      border-color: #00ffa3;
+      box-shadow: 0 0 15px rgba(0, 255, 163, 0.3);
+    }
+    /* Leaderboard in Modal */
+    .leaderboard-box {
+      max-height: 120px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 8px;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .lb-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- HUD OVERLAY -->
+  <div id="hud">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="brand-card">
+        <div class="brand-logo">Aura Kitchen</div>
+        <div class="brand-badge">4-CHEF CO-OP</div>
+      </div>
+
+      <!-- Orders Tray (Customer Orders) -->
+      <div class="orders-tray" id="orders-tray">
+        <!-- Dynamic Orders populated by Customer System -->
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-cluster">
+        <div class="hud-pill">
+          <span class="hud-pill-label">Shift Timer</span>
+          <span class="hud-pill-value timer" id="timer-val">02:00</span>
+        </div>
+        <div class="hud-pill">
+          <span class="hud-pill-label">Tips Jar</span>
+          <span class="hud-pill-value tips" id="tips-val">$0</span>
+        </div>
+        <div class="hud-pill">
+          <span class="hud-pill-label">Rating</span>
+          <span class="hud-pill-value" id="rating-val" style="color: #00e5ff;">⭐ 5.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <div class="chef-status-cluster">
+        <div class="chef-card">
+          <div class="chef-dot" id="chef-dot"></div>
+          <div>
+            <div class="chef-info-name" id="chef-name">Chef Ruby (P1)</div>
+            <div class="chef-info-role">Active Chef</div>
+          </div>
+        </div>
+
+        <button class="action-btn-pill" id="switch-chef-btn" title="Press Tab to Switch">
+          <span>🔄</span>
+          <span>Switch Chef (Tab)</span>
+        </button>
+
+        <button class="action-btn-pill" id="coop-btn" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(255,255,255,0.2); color: #fff;">
+          <span>👥</span>
+          <span>4-Player Mode</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div id="mobile-controls">
+    <div class="touch-joystick-zone" id="joystick-zone">
+      <div class="touch-joystick-stick" id="joystick-stick"></div>
+    </div>
+
+    <div class="touch-actions-zone">
+      <button class="touch-circle-btn btn-interact" id="touch-interact">
+        <span>🍳</span>
+        <span class="touch-btn-sub">Pick/Put</span>
+      </button>
+      <button class="touch-circle-btn btn-chop" id="touch-chop">
+        <span>🔪</span>
+        <span class="touch-btn-sub">Chop</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="floating-notice"></div>
+
+  <!-- START MENU MODAL -->
+  <div class="modal-backdrop" id="start-menu">
+    <div class="modal-card">
+      <div class="modal-title">AURA KITCHEN</div>
+      <p style="color: #8f9cae; font-size: 14px; margin-top: -12px;">High-Energy Culinary Chaos & Customer Service</p>
+
+      <div class="mode-select-row">
+        <div class="mode-card selected" id="opt-solo" onclick="selectGameMode('solo')">
+          <div class="mode-card-icon">👨‍🍳</div>
+          <div>
+            <div class="mode-card-title">Solo Shift (Offline)</div>
+            <div class="mode-card-desc">Control 2 chefs with Tab-switch & Sous-Chef Assistant</div>
+          </div>
+        </div>
+
+        <div class="mode-card" id="opt-coop" onclick="selectGameMode('coop')">
+          <div class="mode-card-icon">👥</div>
+          <div>
+            <div class="mode-card-title">4-Player Local Party</div>
+            <div class="mode-card-desc">Couch co-op on same device with all 4 chefs</div>
+          </div>
+        </div>
+
+        <div class="mode-card" id="opt-online" onclick="selectGameMode('online')">
+          <div class="mode-card-icon">🌐</div>
+          <div>
+            <div class="mode-card-title">4-Player Online Co-Op</div>
+            <div class="mode-card-desc">Real-time room code matching via Aura Backend Server</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Online Room Lobby Panel -->
+      <div class="online-section" id="online-lobby">
+        <!-- Server Connection Status Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 6px 12px; margin-bottom: 4px;">
+          <div style="font-size: 11px; display: flex; align-items: center; gap: 6px;">
+            <span id="server-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #ffaa00; box-shadow: 0 0 6px #ffaa00; display: inline-block;"></span>
+            <span style="color: #8f9cae;">Backend:</span>
+            <span style="color: #00ffa3; font-weight: 700; font-family: 'JetBrains Mono', monospace;" id="server-endpoint-text">panel.sharebotdex.xyz:30015</span>
+          </div>
+          <button onclick="editServerAddress()" style="background: none; border: none; color: #00e5ff; font-size: 10px; font-weight: 700; cursor: pointer; text-decoration: underline;">Change</button>
+        </div>
+
+        <div class="online-tabs">
+          <button class="online-tab-btn active" id="tab-host" onclick="switchOnlineTab('host')">Host Kitchen</button>
+          <button class="online-tab-btn" id="tab-join" onclick="switchOnlineTab('join')">Join with Code</button>
+        </div>
+
+        <div id="view-host">
+          <p style="font-size: 11px; color: #8f9cae;">Share this 4-letter room code with your friends:</p>
+          <div class="room-code-display" id="lobby-room-code">----</div>
+          <div style="margin-top: 10px;">
+            <p style="font-size: 11px; color: #8f9cae; margin-bottom: 6px;">Chefs in Room (<span id="player-count">1</span>/4):</p>
+            <div class="lobby-players-row" id="lobby-players">
+              <div class="lobby-chip" style="color: #ff3344; border-color: #ff3344;">🔴 Chef Ruby (You / Host)</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-join" style="display: none;">
+          <p style="font-size: 11px; color: #8f9cae;">Enter the 4-letter code from the host:</p>
+          <div class="code-input-box">
+            <input type="text" class="room-input" id="input-room-code" maxlength="4" placeholder="CODE" />
+            <button class="action-btn-pill" onclick="joinOnlineRoom()" style="padding: 0 16px;">Join</button>
+          </div>
+          <p id="join-status-msg" style="font-size: 11px; color: #00e5ff; margin-top: 6px;"></p>
+        </div>
+      </div>
+
+      <div class="rank-banner">
+        🎮 Desktop: WASD to Move • Space to Pick/Place • F to Chop • Tab to Switch<br>
+        📱 Mobile: Virtual Touch Joystick & Action Buttons
+      </div>
+
+      <button class="btn-primary" id="start-btn" onclick="startGame()">Start Shift 🚀</button>
+    </div>
+  </div>
+
+  <!-- SHIFT END MODAL -->
+  <div class="modal-backdrop" id="end-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-title">SHIFT COMPLETED!</div>
+      <div class="rank-banner" id="final-rank-banner">👑 3-STAR MICHELIN AURA MASTER</div>
+
+      <div class="score-grid">
+        <div class="score-box">
+          <span class="score-box-label">Plates Served</span>
+          <span class="score-box-val" id="end-plates">0</span>
+        </div>
+        <div class="score-box">
+          <span class="score-box-label">Tips & Revenue</span>
+          <span class="score-box-val" id="end-tips">$0</span>
+        </div>
+        <div class="score-box">
+          <span class="score-box-label">Happy Customers</span>
+          <span class="score-box-val" id="end-customers">0</span>
+        </div>
+        <div class="score-box">
+          <span class="score-box-label">Restaurant Aura</span>
+          <span class="score-box-val" id="end-rating">⭐ 5.0</span>
+        </div>
+      </div>
+
+      <!-- Backend Leaderboard -->
+      <div>
+        <p style="font-size: 11px; text-transform: uppercase; color: #8f9cae; font-weight: 700; margin-bottom: 4px;">🏆 Global Hall of Fame (Backend API)</p>
+        <div class="leaderboard-box" id="leaderboard-list">
+          <div style="color: #8f9cae; padding: 6px;">Loading leaderboard...</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="restartGame()">Next Shift 🍳</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include Three.js for Lightweight 3D Graphics -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Include Colyseus Client SDK -->
+  <script src="https://unpkg.com/colyseus.js@^0.14.0/dist/colyseus.js"></script>
+
+  <script>
+    /* ========================================================
+       AURA KITCHEN - FULL CLIENT CORE & ENGINE
+       ======================================================== */
+
+    // --- Audio Synthesis via Web Audio API ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      },
+      playChop() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      },
+      playPick() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+      },
+      playDeliverySuccess() {
+        if (!this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+          gain.gain.setValueAtTime(0.25, this.ctx.currentTime + idx * 0.08);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.08 + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.08);
+          osc.stop(this.ctx.currentTime + idx * 0.08 + 0.25);
+        });
+      },
+      playWarning() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+    };
+
+    // --- Game Configuration & State ---
+    const RECIPES = [
+      { id: 'burger', name: 'Aura Classic Burger', icon: '🍔', ingredients: ['bread', 'patty_cooked', 'tomato_slice'] },
+      { id: 'cheeseburger', name: 'Deluxe Cheeseburger', icon: '🧀🍔', ingredients: ['bread', 'patty_cooked', 'cheese_slice', 'tomato_slice'] },
+      { id: 'salad', name: 'Fresh Bistro Salad', icon: '🥗', ingredients: ['cabbage_slice', 'tomato_slice', 'cheese_slice'] }
+    ];
+
+    const CHEF_COLORS = [
+      { name: 'Chef Ruby', hex: '#ff3344', num: 0xee2233 },
+      { name: 'Chef Sapphire', hex: '#0088ff', num: 0x0077ee },
+      { name: 'Chef Emerald', hex: '#00dd66', num: 0x00bb55 },
+      { name: 'Chef Amber', hex: '#ffaa00', num: 0xee9900 }
+    ];
+
+    let gameState = {
+      mode: 'solo', // 'solo' or 'coop'
+      isPlaying: false,
+      shiftSeconds: 120,
+      totalTips: 0,
+      platesDelivered: 0,
+      happyCustomers: 0,
+      missedCustomers: 0,
+      activeChefIdx: 0,
+      chefs: [],
+      counters: [],
+      customers: [],
+      orders: [],
+      activeDishQueue: []
+    };
+
+    // --- 3D Scene Setup (Three.js) ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e111a);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Isometric camera view
+    camera.position.set(0, 18, 16);
+    camera.lookAt(0, 0, 1);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Ambient & Directional Warm Aura Lighting
+    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.7);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+    dirLight.position.set(10, 25, 12);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 50;
+    dirLight.shadow.camera.left = -15;
+    dirLight.shadow.camera.right = 15;
+    dirLight.shadow.camera.top = 15;
+    dirLight.shadow.camera.bottom = -15;
+    scene.add(dirLight);
+
+    // Glowing Neon Accent Lights
+    const neonCyan = new THREE.PointLight(0x00e5ff, 1.8, 14);
+    neonCyan.position.set(-6, 3, 4);
+    scene.add(neonCyan);
+
+    const neonGold = new THREE.PointLight(0xffaa00, 1.8, 14);
+    neonGold.position.set(6, 3, 4);
+    scene.add(neonGold);
+
+    // --- Floor & Restaurant Decor ---
+    const floorGeo = new THREE.PlaneGeometry(28, 22);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x161c28,
+      roughness: 0.4,
+      metalness: 0.1
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Decorative perimeter wall
+    const wallGeo = new THREE.BoxGeometry(28, 4, 0.6);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x10141e });
+    const backWall = new THREE.Mesh(wallGeo, wallMat);
+    backWall.position.set(0, 2, 7.5);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    // Neon "AURA KITCHEN" sign on back wall
+    const signGeo = new THREE.BoxGeometry(10, 1.2, 0.2);
+    const signMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00e5ff,
+      emissiveIntensity: 0.8
+    });
+    const neonSign = new THREE.Mesh(signGeo, signMat);
+    neonSign.position.set(0, 3.2, 7.1);
+    scene.add(neonSign);
+
+    // --- Kitchen Counter Builder ---
+    function createCounter(x, z, type, label, item = null) {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      // Base cabinet
+      const baseGeo = new THREE.BoxGeometry(1.6, 1.2, 1.6);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x1a2336,
+        roughness: 0.3,
+        metalness: 0.2
+      });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.y = 0.6;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+
+      // Top counter surface (Marble / Steel)
+      let topColor = 0x2e3c54;
+      if (type === 'stove') topColor = 0x3d2020;
+      if (type === 'cut') topColor = 0xc29862;
+      if (type === 'delivery') topColor = 0x1d4a3e;
+
+      const topGeo = new THREE.BoxGeometry(1.7, 0.15, 1.7);
+      const topMat = new THREE.MeshStandardMaterial({ color: topColor, roughness: 0.2 });
+      const top = new THREE.Mesh(topGeo, topMat);
+      top.position.y = 1.25;
+      top.castShadow = true;
+      group.add(top);
+
+      // Specific Counter Props
+      if (type === 'stove') {
+        const panGeo = new THREE.CylinderGeometry(0.45, 0.4, 0.12, 16);
+        const panMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 });
+        const pan = new THREE.Mesh(panGeo, panMat);
+        pan.position.y = 1.38;
+        group.add(pan);
+      } else if (type === 'cut') {
+        const boardGeo = new THREE.BoxGeometry(0.9, 0.08, 0.9);
+        const boardMat = new THREE.MeshStandardMaterial({ color: 0x8a5a2a });
+        const board = new THREE.Mesh(boardGeo, boardMat);
+        board.position.y = 1.37;
+        group.add(board);
+      } else if (type === 'delivery') {
+        const bellGeo = new THREE.SphereGeometry(0.2, 16, 8);
+        const bellMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 });
+        const bell = new THREE.Mesh(bellGeo, bellMat);
+        bell.position.set(0.5, 1.4, 0.5);
+        group.add(bell);
+      }
+
+      scene.add(group);
+
+      const counterData = {
+        mesh: group,
+        pos: new THREE.Vector3(x, 0, z),
+        type: type,
+        label: label,
+        heldItem: item, // Ingredient currently on counter
+        fryingProgress: 0,
+        cuttingProgress: 0
+      };
+
+      gameState.counters.push(counterData);
+      return counterData;
+    }
+
+    // --- Build Expanded 4-Player Kitchen Layout ---
+    function buildKitchenLayout() {
+      // 1. Central Island (Prep & Assembly)
+      createCounter(-1.8, 1, 'clear', 'Prep Table 1');
+      createCounter(0, 1, 'plates', 'Plates Stack');
+      createCounter(1.8, 1, 'clear', 'Prep Table 2');
+
+      // 2. Chopping / Cutting Stations (Left Flank)
+      createCounter(-5.5, 3.5, 'cut', 'Cutting Board 1');
+      createCounter(-5.5, 1.5, 'cut', 'Cutting Board 2');
+      createCounter(-5.5, -0.5, 'cut', 'Cutting Board 3');
+
+      // 3. Stoves / Cooking Stations (Right Flank)
+      createCounter(5.5, 3.5, 'stove', 'Stove 1');
+      createCounter(5.5, 1.5, 'stove', 'Stove 2');
+      createCounter(5.5, -0.5, 'stove', 'Stove 3');
+
+      // 4. Ingredient Crates (Back Wall)
+      createCounter(-4, 6.2, 'crate_bread', 'Bread Crate');
+      createCounter(-2, 6.2, 'crate_meat', 'Meat Crate');
+      createCounter(0, 6.2, 'crate_cheese', 'Cheese Crate');
+      createCounter(2, 6.2, 'crate_cabbage', 'Cabbage Crate');
+      createCounter(4, 6.2, 'crate_tomato', 'Tomato Crate');
+
+      // 5. Serving / Delivery Counters (Front Service Hatch)
+      createCounter(-1.5, -3.2, 'delivery', 'Service Counter A');
+      createCounter(1.5, -3.2, 'delivery', 'Service Counter B');
+
+      // 6. Trash Bins
+      createCounter(-4.5, -3.2, 'trash', 'Waste Bin 1');
+      createCounter(4.5, -3.2, 'trash', 'Waste Bin 2');
+
+      // 7. Customer Dining Tables (Front dining area)
+      buildCustomerDiningTables();
+    }
+
+    // 4 Customer Dining Tables in front
+    const DINING_TABLES = [];
+    function buildCustomerDiningTables() {
+      const tablePositions = [-4.5, -1.5, 1.5, 4.5];
+      tablePositions.forEach((x, idx) => {
+        const tableGroup = new THREE.Group();
+        tableGroup.position.set(x, 0, -6.5);
+
+        // Round Table
+        const tGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.8, 24);
+        const tMat = new THREE.MeshStandardMaterial({ color: 0x4a3224 });
+        const tableMesh = new THREE.Mesh(tGeo, tMat);
+        tableMesh.position.y = 0.4;
+        tableMesh.castShadow = true;
+        tableGroup.add(tableMesh);
+
+        // Linen cloth
+        const clothGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.04, 24);
+        const clothMat = new THREE.MeshStandardMaterial({ color: 0xf5f0eb });
+        const cloth = new THREE.Mesh(clothGeo, clothMat);
+        cloth.position.y = 0.82;
+        tableGroup.add(cloth);
+
+        // Candle light
+        const candleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.25, 12);
+        const candleMat = new THREE.MeshStandardMaterial({ color: 0xffaa33, emissive: 0xffaa33 });
+        const candle = new THREE.Mesh(candleGeo, candleMat);
+        candle.position.y = 0.95;
+        tableGroup.add(candle);
+
+        scene.add(tableGroup);
+        DINING_TABLES.push({ pos: new THREE.Vector3(x, 0, -6.5), occupied: false, customer: null });
+      });
+    }
+
+    // --- Chef Entity Builder ---
+    function createChef(index, colorInfo, startPos) {
+      const chefGroup = new THREE.Group();
+      chefGroup.position.copy(startPos);
+
+      // Body Capsule/Cylinder
+      const bodyGeo = new THREE.CylinderGeometry(0.45, 0.45, 1.1, 16);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: colorInfo.num, roughness: 0.3 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = 0.7;
+      body.castShadow = true;
+      chefGroup.add(body);
+
+      // Head
+      const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
+      const headMat = new THREE.MeshStandardMaterial({ color: 0xffdfc4 });
+      const head = new THREE.Mesh(headGeo, headMat);
+      head.position.y = 1.45;
+      chefGroup.add(head);
+
+      // Chef Hat
+      const hatGeo = new THREE.CylinderGeometry(0.35, 0.3, 0.45, 16);
+      const hatMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const hat = new THREE.Mesh(hatGeo, hatMat);
+      hat.position.y = 1.85;
+      chefGroup.add(hat);
+
+      // Glowing Aura Ring Under Feet
+      const ringGeo = new THREE.RingGeometry(0.65, 0.85, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: colorInfo.num,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      chefGroup.add(ring);
+
+      scene.add(chefGroup);
+
+      return {
+        mesh: chefGroup,
+        colorInfo: colorInfo,
+        heldItem: null,
+        pos: chefGroup.position,
+        velocity: new THREE.Vector3(),
+        auraRing: ring,
+        isCutting: false,
+        waddleTimer: 0
+      };
+    }
+
+    // --- Customer Entity Builder ---
+    function spawnCustomer(tableIdx, recipe) {
+      const table = DINING_TABLES[tableIdx];
+      if (!table || table.occupied) return;
+
+      table.occupied = true;
+
+      // Customer 3D Mesh
+      const custGroup = new THREE.Group();
+      custGroup.position.set(table.pos.x, 0, table.pos.z - 0.9);
+
+      const cBodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.9, 16);
+      const cBodyMat = new THREE.MeshStandardMaterial({
+        color: Math.random() > 0.5 ? 0x2288ee : 0xee5577
+      });
+      const cBody = new THREE.Mesh(cBodyGeo, cBodyMat);
+      cBody.position.y = 0.55;
+      cBody.castShadow = true;
+      custGroup.add(cBody);
+
+      const cHead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffe0bd }));
+      cHead.position.y = 1.15;
+      custGroup.add(cHead);
+
+      scene.add(custGroup);
+
+      const customerObj = {
+        mesh: custGroup,
+        tableIdx: tableIdx,
+        recipe: recipe,
+        maxPatience: 45,
+        patience: 45,
+        state: 'waiting',
+        domCard: null
+      };
+
+      table.customer = customerObj;
+      gameState.customers.push(customerObj);
+
+      // Create Order Ticket in HUD
+      createOrderTicket(customerObj);
+    }
+
+    function createOrderTicket(customer) {
+      const tray = document.getElementById('orders-tray');
+      const card = document.createElement('div');
+      card.className = 'order-card';
+
+      const ingredientChips = customer.recipe.ingredients.map(ing => {
+        let chipIcon = '🍞';
+        if (ing.includes('patty')) chipIcon = '🥩';
+        if (ing.includes('cheese')) chipIcon = '🧀';
+        if (ing.includes('tomato')) chipIcon = '🍅';
+        if (ing.includes('cabbage')) chipIcon = '🥬';
+        return `<span class="order-chip">${chipIcon}</span>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="order-card-header">
+          <span class="order-name">${customer.recipe.name}</span>
+          <span class="order-customer-avatar">😊</span>
+        </div>
+        <div class="order-ingredients">${ingredientChips}</div>
+        <div class="order-patience-bar">
+          <div class="order-patience-fill" id="p-bar-${customer.tableIdx}"></div>
+        </div>
+      `;
+
+      tray.appendChild(card);
+      customer.domCard = card;
+    }
+
+    function removeCustomer(customer, satisfied = true) {
+      const table = DINING_TABLES[customer.tableIdx];
+      if (table) {
+        table.occupied = false;
+        table.customer = null;
+      }
+
+      if (customer.domCard) {
+        customer.domCard.remove();
+      }
+
+      // Despawn 3D mesh
+      scene.remove(customer.mesh);
+      gameState.customers = gameState.customers.filter(c => c !== customer);
+    }
+
+    // --- Core Delivery & Recipe Checking ---
+    function checkDelivery(heldItem) {
+      if (!heldItem || !heldItem.isPlate) {
+        showNotice("Place completed dish on a Plate first! 🍽️");
+        return false;
+      }
+
+      // Find matching customer
+      for (const customer of gameState.customers) {
+        if (customer.state !== 'waiting') continue;
+
+        const req = [...customer.recipe.ingredients].sort();
+        const cur = [...heldItem.items].sort();
+
+        if (JSON.stringify(req) === JSON.stringify(cur)) {
+          // SUCCESS! Served customer!
+          AudioEngine.playDeliverySuccess();
+          const patienceRatio = customer.patience / customer.maxPatience;
+          let tip = Math.round(20 * (0.5 + patienceRatio));
+          gameState.totalTips += tip;
+          gameState.platesDelivered++;
+          gameState.happyCustomers++;
+
+          showNotice(`Delivered ${customer.recipe.name}! +$${tip} Tip ⭐⭐⭐`);
+          updateHUD();
+
+          customer.state = 'eating';
+          if (customer.domCard) {
+            customer.domCard.querySelector('.order-customer-avatar').textContent = '😋';
+          }
+
+          setTimeout(() => {
+            removeCustomer(customer, true);
+          }, 1500);
+
+          return true;
+        }
+      }
+
+      AudioEngine.playWarning();
+      showNotice("No customer ordered this exact combination! ❌");
+      return false;
+    }
+
+    // --- Input & Controls ---
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (e.code === 'Tab') {
+        e.preventDefault();
+        switchChef();
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleInteract();
+      }
+      if (e.code === 'KeyF') {
+        e.preventDefault();
+        handleChop();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    // Touch Virtual Joystick
+    let touchVec = { x: 0, z: 0 };
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickStick = document.getElementById('joystick-stick');
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      document.getElementById('mobile-controls').style.display = 'block';
+
+      let touchId = null;
+      let startX = 0, startY = 0;
+
+      joystickZone.addEventListener('touchstart', (e) => {
+        const touch = e.changedTouches[0];
+        touchId = touch.identifier;
+        const rect = joystickZone.getBoundingClientRect();
+        startX = rect.left + rect.width / 2;
+        startY = rect.top + rect.height / 2;
+      });
+
+      joystickZone.addEventListener('touchmove', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === touchId) {
+            const dx = t.clientX - startX;
+            const dy = t.clientY - startY;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 45;
+            const angle = Math.atan2(dy, dx);
+            const clamped = Math.min(dist, maxDist);
+
+            joystickStick.style.transform = `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
+            touchVec.x = (Math.cos(angle) * clamped) / maxDist;
+            touchVec.z = (Math.sin(angle) * clamped) / maxDist;
+          }
+        }
+      });
+
+      const resetJoy = () => {
+        touchId = null;
+        joystickStick.style.transform = 'translate(0px, 0px)';
+        touchVec.x = 0;
+        touchVec.z = 0;
+      };
+
+      joystickZone.addEventListener('touchend', resetJoy);
+      joystickZone.addEventListener('touchcancel', resetJoy);
+
+      document.getElementById('touch-interact').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleInteract();
+      });
+
+      document.getElementById('touch-chop').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleChop();
+      });
+    }
+
+    // --- Chef Switching ---
+    function switchChef() {
+      if (gameState.chefs.length < 2) return;
+      gameState.activeChefIdx = (gameState.activeChefIdx + 1) % gameState.chefs.length;
+      updateChefHUD();
+      AudioEngine.playPick();
+    }
+
+    document.getElementById('switch-chef-btn').addEventListener('click', switchChef);
+
+    function updateChefHUD() {
+      const activeChef = gameState.chefs[gameState.activeChefIdx];
+      if (!activeChef) return;
+
+      document.getElementById('chef-name').textContent = `${activeChef.colorInfo.name} (P${gameState.activeChefIdx + 1})`;
+      document.getElementById('chef-dot').style.background = activeChef.colorInfo.hex;
+      document.getElementById('chef-dot').style.boxShadow = `0 0 10px ${activeChef.colorInfo.hex}`;
+
+      // Update ring visibility
+      gameState.chefs.forEach((c, idx) => {
+        c.auraRing.material.opacity = idx === gameState.activeChefIdx ? 0.9 : 0.25;
+      });
+    }
+
+    // --- Interaction Logic (Pick/Put/Chop) ---
+    function getNearestCounter(chefPos) {
+      let nearest = null;
+      let minDst = 2.2;
+      for (const counter of gameState.counters) {
+        const dst = chefPos.distanceTo(counter.pos);
+        if (dst < minDst) {
+          minDst = dst;
+          nearest = counter;
+        }
+      }
+      return nearest;
+    }
+
+    function handleInteract() {
+      AudioEngine.init();
+      const chef = gameState.chefs[gameState.activeChefIdx];
+      if (!chef) return;
+
+      const counter = getNearestCounter(chef.pos);
+      if (!counter) return;
+
+      // 1. Ingredient Crate pickup
+      if (counter.type.startsWith('crate_')) {
+        const ingType = counter.type.replace('crate_', '');
+        chef.heldItem = { type: ingType, isCut: false, isCooked: false, isPlate: false };
+        AudioEngine.playPick();
+        showNotice(`Picked up ${ingType.toUpperCase()}!`);
+        return;
+      }
+
+      // 2. Plates Counter
+      if (counter.type === 'plates') {
+        chef.heldItem = { isPlate: true, items: [] };
+        AudioEngine.playPick();
+        showNotice("Picked up Clean Plate! 🍽️");
+        return;
+      }
+
+      // 3. Delivery Counter
+      if (counter.type === 'delivery') {
+        if (chef.heldItem) {
+          const success = checkDelivery(chef.heldItem);
+          if (success) chef.heldItem = null;
+        }
+        return;
+      }
+
+      // 4. Trash Bin
+      if (counter.type === 'trash') {
+        if (chef.heldItem) {
+          chef.heldItem = null;
+          AudioEngine.playWarning();
+          showNotice("Item Trashed! 🗑️");
+        }
+        return;
+      }
+
+      // 5. Transfer between Chef and Counter
+      if (chef.heldItem && !counter.heldItem) {
+        counter.heldItem = chef.heldItem;
+        chef.heldItem = null;
+        AudioEngine.playPick();
+      } else if (!chef.heldItem && counter.heldItem) {
+        chef.heldItem = counter.heldItem;
+        counter.heldItem = null;
+        AudioEngine.playPick();
+      } else if (chef.heldItem && counter.heldItem) {
+        // Assembly onto plate
+        if (chef.heldItem.isPlate && !counter.heldItem.isPlate) {
+          chef.heldItem.items.push(counter.heldItem.type);
+          counter.heldItem = null;
+          AudioEngine.playPick();
+          showNotice(`Added to plate! Items: [${chef.heldItem.items.join(', ')}]`);
+        } else if (!chef.heldItem.isPlate && counter.heldItem.isPlate) {
+          counter.heldItem.items.push(chef.heldItem.type);
+          chef.heldItem = null;
+          AudioEngine.playPick();
+          showNotice(`Added to plate! Items: [${counter.heldItem.items.join(', ')}]`);
+        }
+      }
+    }
+
+    function handleChop() {
+      AudioEngine.init();
+      const chef = gameState.chefs[gameState.activeChefIdx];
+      if (!chef) return;
+
+      const counter = getNearestCounter(chef.pos);
+      if (!counter || counter.type !== 'cut') return;
+
+      if (counter.heldItem && !counter.heldItem.isCut) {
+        counter.cuttingProgress = (counter.cuttingProgress || 0) + 1;
+        AudioEngine.playChop();
+
+        // Animate chef chop bounce
+        chef.mesh.position.y = 0.15;
+        setTimeout(() => chef.mesh.position.y = 0, 70);
+
+        if (counter.cuttingProgress >= 3) {
+          counter.heldItem.isCut = true;
+          counter.heldItem.type += '_slice';
+          counter.cuttingProgress = 0;
+          showNotice(`Chopped into ${counter.heldItem.type.toUpperCase()}! 🔪`);
+        }
+      }
+    }
+
+    // --- Stove Frying Simulation ---
+    function updateStoves(delta) {
+      for (const counter of gameState.counters) {
+        if (counter.type === 'stove' && counter.heldItem && counter.heldItem.type === 'meat') {
+          counter.fryingProgress = (counter.fryingProgress || 0) + delta;
+          if (counter.fryingProgress > 6 && !counter.heldItem.isCooked) {
+            counter.heldItem.isCooked = true;
+            counter.heldItem.type = 'patty_cooked';
+            showNotice("Meat Patty Cooked! Sizzling hot! 🥩🔥");
+          }
+        }
+      }
+    }
+
+    // --- Notification Helper ---
+    let noticeTimeout;
+    function showNotice(text) {
+      const el = document.getElementById('floating-notice');
+      el.textContent = text;
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(-50%) translateY(0)';
+      clearTimeout(noticeTimeout);
+      noticeTimeout = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(-50%) translateY(-10px)';
+      }, 1800);
+    }
+
+    function updateHUD() {
+      document.getElementById('tips-val').textContent = `$${gameState.totalTips}`;
+      const total = gameState.happyCustomers + gameState.missedCustomers;
+      const rating = total > 0 ? (gameState.happyCustomers / total * 5).toFixed(1) : '5.0';
+      document.getElementById('rating-val').textContent = `⭐ ${rating}`;
+    }
+
+    // --- Networking Client (Colyseus Multiplayer SDK) ---
+    const Network = {
+      client: null,
+      room: null,
+      isOnline: false,
+      isHost: false,
+      mySlot: 0,
+      roomCode: '',
+      serverUrl: localStorage.getItem('aura_server_url') || 'panel.sharebotdex.xyz:30015',
+
+      async init() {
+        if (this.client) return;
+        let clean = this.serverUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').trim();
+        const proto = (location.protocol === 'https:' && !clean.includes('30015')) ? 'wss:' : 'ws:';
+        const endpoint = `${proto}//${clean}`;
+        console.log('[Colyseus] Initializing connection to:', endpoint);
+
+        const endpointText = document.getElementById('server-endpoint-text');
+        if (endpointText) endpointText.textContent = clean;
+
+        if (window.Colyseus) {
+          try {
+            this.client = new Colyseus.Client(endpoint);
+          } catch (e) {
+            console.warn('[Colyseus init warning]', e);
+          }
+        }
+      },
+
+      async createRoom(playerName = 'Chef Ruby') {
+        await this.init();
+        const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+        this.roomCode = code;
+        this.isHost = true;
+        this.mySlot = 0;
+        document.getElementById('lobby-room-code').textContent = code;
+
+        const statusDot = document.getElementById('server-status-dot');
+        if (this.client) {
+          try {
+            this.room = await this.client.create('kitchen_room', { roomCode: code, name: playerName });
+            this.isOnline = true;
+            if (statusDot) {
+              statusDot.style.background = '#00ffa3';
+              statusDot.style.boxShadow = '0 0 8px #00ffa3';
+            }
+            this.bindRoomEvents();
+            showNotice(`Created Room ${code} on ${this.serverUrl}`);
+          } catch (e) {
+            console.warn(`[Colyseus server offline, waiting for server to start]:`, e.message);
+            if (statusDot) {
+              statusDot.style.background = '#ffaa00';
+              statusDot.style.boxShadow = '0 0 8px #ffaa00';
+            }
+            showNotice(`Room code: ${code} (Backend server connecting...)`);
+          }
+        }
+      },
+
+      async joinRoom(code, playerName = 'Chef') {
+        await this.init();
+        const statusMsg = document.getElementById('join-status-msg');
+        if (!this.client) {
+          if (statusMsg) statusMsg.textContent = '❌ Colyseus client not ready!';
+          return;
+        }
+
+        if (statusMsg) statusMsg.textContent = `Connecting to ${this.serverUrl}... ⏳`;
+
+        try {
+          this.room = await this.client.join('kitchen_room', { roomCode: code, name: playerName });
+          this.isOnline = true;
+          this.isHost = false;
+          this.roomCode = code;
+          this.bindRoomEvents();
+        } catch (e) {
+          console.warn('[Colyseus join error]:', e.message);
+          if (statusMsg) {
+            statusMsg.textContent = `⚠️ Cannot connect to ${this.serverUrl}. (Server offline or invalid code)`;
+          }
+        }
+      },
+
+      bindRoomEvents() {
+        if (!this.room) return;
+
+        this.room.onMessage('joined_info', (info) => {
+          this.mySlot = info.slot;
+          gameState.activeChefIdx = info.slot;
+          if (!this.isHost) {
+            document.getElementById('join-status-msg').textContent = `✅ Joined room ${info.roomCode} as ${info.chefInfo.name}!`;
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) {
+              startBtn.textContent = 'Waiting for Host... ⏳';
+              startBtn.disabled = true;
+            }
+          }
+        });
+
+        this.room.onMessage('shift_started', () => {
+          startGame(true);
+        });
+
+        this.room.onMessage('counter_interact', (msg) => {
+          // Sync remote interaction if needed
+        });
+
+        this.room.onMessage('chop_action', (msg) => {
+          if (msg.slot !== this.mySlot && gameState.counters[msg.counterIdx]) {
+            AudioEngine.playChop();
+            const c = gameState.counters[msg.counterIdx];
+            c.cuttingProgress = msg.progress;
+            if (c.cuttingProgress >= 3 && c.heldItem) {
+              c.heldItem.isCut = true;
+              c.heldItem.type += '_slice';
+              c.cuttingProgress = 0;
+            }
+          }
+        });
+
+        this.room.onMessage('order_delivered', (msg) => {
+          if (msg.slot !== this.mySlot) {
+            AudioEngine.playDeliverySuccess();
+            gameState.totalTips = msg.totalTips;
+            gameState.platesDelivered = msg.platesServed;
+            gameState.happyCustomers++;
+            showNotice(`Delivered ${msg.dishName}! +$${msg.tip} Tip ⭐`);
+            updateHUD();
+          }
+        });
+
+        // Listen for player schema state additions & movements
+        this.room.state.players.onAdd((player, sessionId) => {
+          addLobbyChip({ name: player.name, color: CHEF_COLORS[player.slot] || CHEF_COLORS[0] });
+          document.getElementById('player-count').textContent = this.room.state.players.size;
+
+          player.onChange(() => {
+            if (player.slot !== this.mySlot && gameState.chefs[player.slot]) {
+              const remoteChef = gameState.chefs[player.slot];
+              remoteChef.pos.x = player.x;
+              remoteChef.pos.z = player.z;
+              remoteChef.mesh.rotation.y = player.rotY;
+            }
+          });
+        });
+
+        this.room.state.players.onRemove(() => {
+          document.getElementById('player-count').textContent = this.room.state.players.size;
+        });
+      },
+
+      startShift() {
+        if (this.room) this.room.send('start_shift');
+      },
+
+      sendMove(x, z, rotY, isMoving) {
+        if (this.room) this.room.send('move', { x, z, rotY, isMoving });
+      },
+
+      sendInteract(counterIdx, action, item) {
+        if (this.room) this.room.send('interact', { counterIdx, action, item });
+      },
+
+      sendChop(counterIdx, progress) {
+        if (this.room) this.room.send('chop', { counterIdx, progress });
+      },
+
+      sendDelivery(tableIdx, tip, dishName) {
+        if (this.room) this.room.send('deliver', { tableIdx, tip, dishName });
+      }
+    };
+
+    function editServerAddress() {
+      const current = Network.serverUrl;
+      const input = prompt('Enter your Aura Kitchen Backend Server URL:', current);
+      if (input && input.trim()) {
+        Network.serverUrl = input.trim();
+        localStorage.setItem('aura_server_url', Network.serverUrl);
+        const endpointText = document.getElementById('server-endpoint-text');
+        if (endpointText) endpointText.textContent = Network.serverUrl;
+        Network.client = null;
+        Network.init();
+        showNotice(`Updated Backend URL: ${Network.serverUrl}`);
+      }
+    }
+
+    function updateLobbyChips(players) {
+      const container = document.getElementById('lobby-players');
+      container.innerHTML = players.map(p => `
+        <div class="lobby-chip" style="color: ${p.color.hex}; border-color: ${p.color.hex};">
+          ${p.name}
+        </div>
+      `).join('');
+      document.getElementById('player-count').textContent = players.length;
+    }
+
+    function addLobbyChip(player) {
+      const container = document.getElementById('lobby-players');
+      const div = document.createElement('div');
+      div.className = 'lobby-chip';
+      div.style.color = player.color.hex;
+      div.style.borderColor = player.color.hex;
+      div.textContent = player.name;
+      container.appendChild(div);
+    }
+
+    function switchOnlineTab(tab) {
+      document.getElementById('tab-host').classList.toggle('active', tab === 'host');
+      document.getElementById('tab-join').classList.toggle('active', tab === 'join');
+      document.getElementById('view-host').style.display = tab === 'host' ? 'block' : 'none';
+      document.getElementById('view-join').style.display = tab === 'join' ? 'block' : 'none';
+
+      if (tab === 'host' && !Network.roomCode) {
+        Network.connect().then(ok => {
+          if (ok) Network.createRoom('Chef Ruby');
+        });
+      }
+    }
+
+    function joinOnlineRoom() {
+      const input = document.getElementById('input-room-code');
+      const code = input.value.trim().toUpperCase();
+      if (code.length !== 4) {
+        showNotice('Please enter a 4-letter room code!');
+        return;
+      }
+      Network.connect().then(ok => {
+        if (ok) {
+          Network.joinRoom(code);
+        } else {
+          showNotice('Cannot connect to backend server!');
+        }
+      });
+    }
+
+    // --- Game Loops & Lifecycle ---
+    function selectGameMode(mode) {
+      gameState.mode = mode;
+      document.getElementById('opt-solo').classList.toggle('selected', mode === 'solo');
+      document.getElementById('opt-coop').classList.toggle('selected', mode === 'coop');
+      document.getElementById('opt-online').classList.toggle('selected', mode === 'online');
+
+      const lobby = document.getElementById('online-lobby');
+      if (mode === 'online') {
+        lobby.style.display = 'flex';
+        switchOnlineTab('host');
+      } else {
+        lobby.style.display = 'none';
+      }
+    }
+
+    function startGame(fromNetwork = false) {
+      if (gameState.mode === 'online' && !fromNetwork && Network.isHost) {
+        Network.startShift();
+      }
+
+      AudioEngine.init();
+      document.getElementById('start-menu').style.display = 'none';
+      buildKitchenLayout();
+
+      // Spawn Chefs
+      if (gameState.mode === 'solo') {
+        gameState.chefs.push(createChef(0, CHEF_COLORS[0], new THREE.Vector3(-2, 0, 0)));
+        gameState.chefs.push(createChef(1, CHEF_COLORS[1], new THREE.Vector3(2, 0, 0)));
+      } else {
+        CHEF_COLORS.forEach((color, idx) => {
+          const spawnX = -3 + idx * 2;
+          gameState.chefs.push(createChef(idx, color, new THREE.Vector3(spawnX, 0, 0)));
+        });
+      }
+
+      if (gameState.mode === 'online') {
+        gameState.activeChefIdx = Network.mySlot;
+      }
+
+      updateChefHUD();
+      gameState.isPlaying = true;
+
+      // Spawn initial customer after 2 seconds
+      setTimeout(() => spawnNextCustomer(), 2000);
+    }
+
+    function spawnNextCustomer() {
+      if (!gameState.isPlaying) return;
+
+      const freeTableIdx = DINING_TABLES.findIndex(t => !t.occupied);
+      if (freeTableIdx !== -1) {
+        const recipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+        spawnCustomer(freeTableIdx, recipe);
+      }
+
+      const nextDelay = 7000 + Math.random() * 6000;
+      setTimeout(spawnNextCustomer, nextDelay);
+    }
+
+    // Customer Patience Loop
+    function updateCustomers(delta) {
+      for (let i = gameState.customers.length - 1; i >= 0; i--) {
+        const c = gameState.customers[i];
+        if (c.state === 'waiting') {
+          c.patience -= delta;
+          const ratio = Math.max(0, c.patience / c.maxPatience);
+
+          const bar = document.getElementById(`p-bar-${c.tableIdx}`);
+          if (bar) {
+            bar.style.width = `${ratio * 100}%`;
+            if (ratio < 0.3) {
+              bar.style.background = '#ff3838';
+              c.domCard.classList.add('urgent');
+              c.domCard.querySelector('.order-customer-avatar').textContent = '😡';
+            } else if (ratio < 0.6) {
+              bar.style.background = '#ffaa00';
+              c.domCard.querySelector('.order-customer-avatar').textContent = '😐';
+            }
+          }
+
+          if (c.patience <= 0) {
+            // Customer walked out!
+            gameState.missedCustomers++;
+            showNotice("Customer stormed out without paying! 😠");
+            updateHUD();
+            removeCustomer(c, false);
+          }
+        }
+      }
+    }
+
+    // Shift Countdown Timer
+    setInterval(() => {
+      if (!gameState.isPlaying) return;
+      gameState.shiftSeconds--;
+
+      const mins = Math.floor(gameState.shiftSeconds / 60);
+      const secs = gameState.shiftSeconds % 60;
+      const timerEl = document.getElementById('timer-val');
+      timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      if (gameState.shiftSeconds <= 15) {
+        timerEl.classList.add('urgent');
+      }
+
+      if (gameState.shiftSeconds <= 0) {
+        endShift();
+      }
+    }, 1000);
+
+    function endShift() {
+      gameState.isPlaying = false;
+      document.getElementById('end-plates').textContent = gameState.platesDelivered;
+      document.getElementById('end-tips').textContent = `$${gameState.totalTips}`;
+      document.getElementById('end-customers').textContent = gameState.happyCustomers;
+
+      const total = gameState.happyCustomers + gameState.missedCustomers;
+      const rating = total > 0 ? (gameState.happyCustomers / total * 5).toFixed(1) : '5.0';
+      document.getElementById('end-rating').textContent = `⭐ ${rating}`;
+
+      const banner = document.getElementById('final-rank-banner');
+      if (gameState.platesDelivered >= 6) {
+        banner.textContent = "👑 3-STAR MICHELIN AURA MASTER";
+      } else if (gameState.platesDelivered >= 3) {
+        banner.textContent = "⭐ EXECUTIVE SOUS-CHEF";
+      } else {
+        banner.textContent = "🍳 TALENTED LINE COOK";
+      }
+
+      // Post score to backend API & load leaderboard
+      const teamName = Network.isOnline ? `Team ${Network.roomCode}` : 'Solo Master';
+      fetch('/api/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamName: teamName,
+          tips: gameState.totalTips,
+          plates: gameState.platesDelivered,
+          rating: Number(rating)
+        })
+      }).catch(() => {});
+
+      fetch('/api/leaderboard')
+        .then(r => r.json())
+        .then(data => {
+          const lbEl = document.getElementById('leaderboard-list');
+          if (lbEl && Array.isArray(data)) {
+            lbEl.innerHTML = data.map((item, idx) => `
+              <div class="lb-row">
+                <span>#${idx + 1} ${item.teamName}</span>
+                <span style="color: #ffd700; font-weight: 800;">$${item.tips} • ⭐${item.rating}</span>
+              </div>
+            `).join('');
+          }
+        })
+        .catch(() => {
+          const lbEl = document.getElementById('leaderboard-list');
+          if (lbEl) lbEl.innerHTML = '<div style="color: #8f9cae; padding: 4px;">Offline / Local shift</div>';
+        });
+
+      document.getElementById('end-modal').style.display = 'flex';
+    }
+
+    function restartGame() {
+      window.location.reload();
+    }
+
+    // --- Main Render & Movement Loop ---
+    let lastTime = performance.now();
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (gameState.isPlaying) {
+        updateStoves(delta);
+        updateCustomers(delta);
+
+        // Chef Movement
+        const activeChef = gameState.chefs[gameState.activeChefIdx];
+        if (activeChef) {
+          let moveX = 0, moveZ = 0;
+          if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+          if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+          if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+          if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+          // Merge touch input
+          moveX += touchVec.x;
+          moveZ += touchVec.z;
+
+          const mag = Math.hypot(moveX, moveZ);
+          if (mag > 0.05) {
+            const speed = 7.5;
+            const normX = (moveX / mag) * speed * delta;
+            const normZ = (moveZ / mag) * speed * delta;
+
+            // Boundaries check
+            const nextX = THREE.MathUtils.clamp(activeChef.pos.x + normX, -7.5, 7.5);
+            const nextZ = THREE.MathUtils.clamp(activeChef.pos.z + normZ, -4.5, 5.5);
+
+            activeChef.pos.x = nextX;
+            activeChef.pos.z = nextZ;
+
+            // Smooth rotation towards movement
+            const angle = Math.atan2(normX, normZ);
+            activeChef.mesh.rotation.y = angle;
+
+            // Subtle waddle animation
+            activeChef.waddleTimer = (activeChef.waddleTimer || 0) + delta * 12;
+            activeChef.mesh.position.y = Math.abs(Math.sin(activeChef.waddleTimer)) * 0.12;
+
+            if (Network.isOnline) {
+              Network.sendMove(activeChef.pos.x, activeChef.pos.z, activeChef.mesh.rotation.y, true);
+            }
+          } else {
+            activeChef.mesh.position.y = 0;
+            if (Network.isOnline && activeChef.waddleTimer > 0) {
+              Network.sendMove(activeChef.pos.x, activeChef.pos.z, activeChef.mesh.rotation.y, false);
+              activeChef.waddleTimer = 0;
+            }
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
+

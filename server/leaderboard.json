@@ -1,0 +1,23 @@
+[
+  {
+    "teamName": "Aura Master Chefs",
+    "tips": 420,
+    "plates": 14,
+    "rating": 5,
+    "date": "2026-11-06T01:48:57.940Z"
+  },
+  {
+    "teamName": "Ruby & Sapphire Duo",
+    "tips": 280,
+    "plates": 9,
+    "rating": 4.8,
+    "date": "2026-11-06T01:48:57.941Z"
+  },
+  {
+    "teamName": "Emerald Express",
+    "tips": 195,
+    "plates": 7,
+    "rating": 4.5,
+    "date": "2026-11-06T01:48:57.941Z"
+  }
+]
