@@ -2,6 +2,10 @@ name: Deploy Aura Kitchen Unity WebGL to GitHub Pages
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Aura Kitchen Android APK"]
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -9,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: unity-build-pipeline
   cancel-in-progress: false
 
 jobs:
@@ -55,6 +59,12 @@ jobs:
           dockerShmSize: 3g
           buildsPath: build
 
+      - name: Output Unity Log on Failure
+        if: failure()
+        run: |
+          echo "=== Displaying Unity Editor Logs ==="
+          find / -name "Editor.log" 2>/dev/null -exec tail -n 100 {} + || true
+
       - name: Prepare WebGL for GitHub Pages
         run: |
           mkdir -p public
@@ -64,6 +74,47 @@ jobs:
             cp -r build/WebGL/* public/
           fi
           touch public/.nojekyll
+
+          echo "=== Processing WebGL build files ==="
+          ls -la public/
+
+          # GitHub Pages does not serve Brotli/Gzip Content-Encoding headers for static files.
+          # If Unity produced compressed .br or .gz files, decompress them so GitHub Pages serves them directly:
+          if [ -d "public/Build" ]; then
+            sudo apt-get update && sudo apt-get install -y brotli
+            cd public/Build
+
+            for f in *.br; do
+              [ -e "$f" ] || continue
+              echo "Decompressing $f..."
+              brotli -d "$f"
+              rm -f "$f"
+            done
+
+            for f in *.gz; do
+              [ -e "$f" ] || continue
+              echo "Decompressing $f..."
+              gzip -d "$f"
+            done
+            cd ../..
+
+            if [ -f "public/index.html" ]; then
+              echo "Updating index.html references to uncompressed filenames..."
+              sed -i 's/\.framework\.js\.br/\.framework\.js/g' public/index.html
+              sed -i 's/\.data\.br/\.data/g' public/index.html
+              sed -i 's/\.wasm\.br/\.wasm/g' public/index.html
+              sed -i 's/\.framework\.js\.gz/\.framework\.js/g' public/index.html
+              sed -i 's/\.data\.gz/\.data/g' public/index.html
+              sed -i 's/\.wasm\.gz/\.wasm/g' public/index.html
+              sed -i 's/\.br"/\x22/g' public/index.html
+              sed -i "s/\.br'/\x27/g" public/index.html
+              sed -i 's/\.gz"/\x22/g' public/index.html
+              sed -i "s/\.gz'/\x27/g" public/index.html
+            fi
+
+            echo "=== Final public/Build contents ==="
+            ls -la public/Build
+          fi
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

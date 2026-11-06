@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-apk-build
+  group: unity-build-pipeline
   cancel-in-progress: false
 
 jobs:
