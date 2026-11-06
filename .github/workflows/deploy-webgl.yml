@@ -99,40 +99,8 @@ jobs:
             cd ../..
 
             if [ -f "public/index.html" ]; then
-              echo "Patching index.html with Python..."
-              python3 -c "
-import os
-
-html_path = 'public/index.html'
-if os.path.exists(html_path):
-    with open(html_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    for ext in ['.framework.js.br', '.data.br', '.wasm.br', '.framework.js.gz', '.data.gz', '.wasm.gz']:
-        raw = ext.replace('.br', '').replace('.gz', '')
-        content = content.replace(ext, raw)
-
-    content = content.replace('alert(message);', 'console.error(\"[Unity WebGL] Startup error:\", message);')
-
-    patch = '''<script>
-      // Screen Orientation Safety Wrapper
-      if (window.screen && window.screen.orientation) {
-        try {
-          var _origAdd = window.screen.orientation.addEventListener;
-          window.screen.orientation.addEventListener = function(t, fn, o) {
-            return _origAdd.call(this, t, function(e) {
-              try { fn(e); } catch (err) { console.warn('Caught WebGL orientation event error:', err); }
-            }, o);
-          };
-        } catch(e) {}
-      }
-'''
-    content = content.replace('<script>', patch, 1)
-
-    with open(html_path, 'w', encoding='utf-8') as f:
-        f.write(content)
-    print('index.html successfully patched!')
-"
+              echo "Patching index.html with Python script..."
+              python3 .github/scripts/patch_webgl.py
             fi
 
             echo "=== Final public/Build contents ==="
