@@ -35,8 +35,14 @@ jobs:
         with:
           targetPlatform: Android
           unityVersion: 2022.3.1f1
-          androidAppBundle: false # Produces standard APK
+          androidExportType: androidPackage
           buildsPath: build
+
+      - name: Output Unity Log on Failure
+        if: failure()
+        run: |
+          echo "=== Displaying Unity Editor Logs ==="
+          find / -name "Editor.log" 2>/dev/null -exec tail -n 100 {} + || true
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
