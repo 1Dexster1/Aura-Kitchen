@@ -63,7 +63,7 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraMobileControls>();
             }
 
-            Debug.Log("<color=#00e5ff>[Aura Kitchen]</color> Systems initialized successfully for " + sceneName);
+            Debug.Log("<color=#00e5ff>[Aura Kitchen]</color> Systems initialized successfully for " + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
         }
     }
 }

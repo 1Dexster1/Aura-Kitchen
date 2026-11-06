@@ -109,7 +109,7 @@ namespace AuraKitchen
             SendMessage(new { type = "order_delivered", slot, tableIdx, tip, dishName });
         }
 
-        public new async void SendMessage(object payload)
+        public async void SendMessage(object payload)
         {
             if (!IsConnected) return;
 
