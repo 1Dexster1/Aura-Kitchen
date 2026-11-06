@@ -1,4 +1,4 @@
-name: Deploy Aura Kitchen WebGL to GitHub Pages
+name: Deploy Aura Kitchen Web Game to GitHub Pages
 
 on:
   push:
@@ -15,58 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-webgl:
-    name: Build Unity WebGL
+  deploy-pages:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: Cache Unity Library
-        uses: actions/cache@v4
-        with:
-          path: Library
-          key: Library-WebGL-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
-          restore-keys: |
-            Library-WebGL-
-
-      - name: Build WebGL via GameCI
-        uses: game-ci/unity-builder@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        with:
-          targetPlatform: WebGL
-          unityVersion: 2022.3.1f1
-          buildsPath: build
-
-      - name: Prepare WebGL for GitHub Pages
+      - name: Prepare Web Files
         run: |
           mkdir -p public
-          if [ -d "build/WebGL/WebGL" ]; then
-            cp -r build/WebGL/WebGL/* public/
-          elif [ -d "build/WebGL" ]; then
-            cp -r build/WebGL/* public/
-          fi
+          cp index.html public/index.html
           touch public/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
-  deploy-pages:
-    name: Deploy to GitHub Pages
-    needs: build-webgl
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
