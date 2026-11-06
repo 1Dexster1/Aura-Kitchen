@@ -117,7 +117,7 @@ namespace AuraKitchen
                 });
 
             // Button C: SWITCH CHEF (Magenta / Purple)
-            CreateActionButton("Btn_SwitchChef", "CHEF\n🔁", new Vector2(-130, 270), new Vector2(95, 95),
+            CreateActionButton("Btn_SwitchChef", "SWITCH\nCHEF", new Vector2(-130, 270), new Vector2(95, 95),
                 new Color(0.85f, 0.2f, 0.85f, 0.9f), () =>
                 {
                     OnSwitchChefPressed?.Invoke(this, EventArgs.Empty);
@@ -128,7 +128,7 @@ namespace AuraKitchen
                 });
 
             // Button D: DASH / SPRINT (Electric Blue)
-            CreateActionButton("Btn_Dash", "DASH\n⚡", new Vector2(-270, 260), new Vector2(90, 90),
+            CreateActionButton("Btn_Dash", "DASH\nRUN", new Vector2(-270, 260), new Vector2(90, 90),
                 new Color(0.15f, 0.65f, 1f, 0.9f), () =>
                 {
                     IsTouchSprinting = !IsTouchSprinting;

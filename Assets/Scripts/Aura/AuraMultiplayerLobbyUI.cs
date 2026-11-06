@@ -1,8 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 namespace AuraKitchen
@@ -11,23 +14,48 @@ namespace AuraKitchen
     {
         public static AuraMultiplayerLobbyUI Instance { get; private set; }
 
+        [Header("Backend")]
+        [SerializeField] private string serverBaseUrl = "http://panel.sharebotdex.xyz:30015";
+
         private GameObject lobbyRootCanvas;
         private GameObject mainModalCard;
-        private TextMeshProUGUI roomCodeText;
-        private TextMeshProUGUI statusMsgText;
-        private TextMeshProUGUI playerCountText;
-        private TMP_InputField joinCodeInput;
+        private GameObject topCornerLobbyBtn;
 
+        // Modal Views
         private GameObject hostViewObj;
         private GameObject joinViewObj;
+        private GameObject guestWaitingViewObj;
         private GameObject soloViewObj;
 
+        // Tabs
         private Button tabHostBtn;
         private Button tabJoinBtn;
         private Button tabSoloBtn;
 
-        private string generatedRoomCode = "AUR4";
-        private bool isHost = true;
+        // Host View Elements
+        private TextMeshProUGUI hostRoomCodeText;
+        private TextMeshProUGUI hostStatusText;
+        private TextMeshProUGUI[] hostSlotTexts = new TextMeshProUGUI[4];
+        private Button hostStartGameBtn;
+
+        // Join View Elements
+        private TMP_InputField joinCodeInput;
+        private TextMeshProUGUI joinStatusText;
+        private Button joinSubmitBtn;
+
+        // Guest Waiting View Elements
+        private TextMeshProUGUI guestRoomCodeText;
+        private TextMeshProUGUI guestRoleText;
+        private TextMeshProUGUI guestWaitingStatusText;
+        private Button guestLeaveBtn;
+
+        // Global status & state
+        private TextMeshProUGUI globalStatusText;
+        private string activeRoomCode = "AUR4";
+        private int mySlotIndex = 0;
+        private bool isHost = false;
+        private bool isWaitingInRoom = false;
+        private Coroutine roomPollCoroutine;
 
         private void Awake()
         {
@@ -40,33 +68,49 @@ namespace AuraKitchen
             DontDestroyOnLoad(gameObject);
 
             CreateLobbyProceduralUI();
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // Only show top-right floating button when inside the GameScene, not MainMenu
+            bool isGameScene = scene.name == SceneSwitcher.Scene.GameScene.ToString();
+            if (topCornerLobbyBtn != null)
+            {
+                topCornerLobbyBtn.SetActive(isGameScene);
+            }
+
+            if (isGameScene)
+            {
+                HideLobby();
+            }
         }
 
         private void Start()
         {
-            // Connect to WebSocket client if available
-            if (AuraWebSocketClient.Instance != null)
-            {
-                AuraWebSocketClient.Instance.OnRoomCreated += (s, code) =>
-                {
-                    generatedRoomCode = code;
-                    if (roomCodeText != null) roomCodeText.text = code;
-                    UpdateStatus("✅ Room created! Ready for chefs to join.");
-                };
-
-                AuraWebSocketClient.Instance.OnRoomJoined += (s, code) =>
-                {
-                    UpdateStatus($"✅ Joined room {code} successfully!");
-                };
-
-                AuraWebSocketClient.Instance.OnErrorReceived += (s, err) =>
-                {
-                    UpdateStatus($"⚠️ Server: {err}");
-                };
-            }
-
-            // Hide on initial load
             HideLobby();
+        }
+
+        public void ShowLobby()
+        {
+            if (lobbyRootCanvas != null)
+            {
+                lobbyRootCanvas.SetActive(true);
+            }
+            SwitchTab("host");
+        }
+
+        public void HideLobby()
+        {
+            if (lobbyRootCanvas != null)
+            {
+                lobbyRootCanvas.SetActive(false);
+            }
         }
 
         private void CreateLobbyProceduralUI()
@@ -85,37 +129,33 @@ namespace AuraKitchen
 
             lobbyRootCanvas.AddComponent<GraphicRaycaster>();
 
-            // 1. Persistent Top-Right Rooms Button (Always accessible)
-            GameObject topBtnObj = new GameObject("Btn_OpenLobby_Top");
-            topBtnObj.transform.SetParent(lobbyRootCanvas.transform, false);
-            RectTransform topBtnRect = topBtnObj.AddComponent<RectTransform>();
+            // 1. Subtle In-Game Corner Badge Button (Only active in GameScene)
+            topCornerLobbyBtn = new GameObject("Btn_OpenLobby_Top");
+            topCornerLobbyBtn.transform.SetParent(lobbyRootCanvas.transform, false);
+            RectTransform topBtnRect = topCornerLobbyBtn.AddComponent<RectTransform>();
             topBtnRect.anchorMin = new Vector2(1, 1);
             topBtnRect.anchorMax = new Vector2(1, 1);
             topBtnRect.pivot = new Vector2(1, 1);
-            topBtnRect.anchoredPosition = new Vector2(-24, -20);
-            topBtnRect.sizeDelta = new Vector2(230, 48);
+            topBtnRect.anchoredPosition = new Vector2(-20, -18);
+            topBtnRect.sizeDelta = new Vector2(180, 42);
 
-            Image topBtnImg = topBtnObj.AddComponent<Image>();
-            topBtnImg.color = new Color(0.12f, 0.16f, 0.28f, 0.9f);
+            Image topBtnImg = topCornerLobbyBtn.AddComponent<Image>();
+            topBtnImg.color = new Color(0.10f, 0.14f, 0.22f, 0.90f);
 
-            Button topBtn = topBtnObj.AddComponent<Button>();
+            Outline topBtnOutline = topCornerLobbyBtn.AddComponent<Outline>();
+            topBtnOutline.effectColor = new Color(0.25f, 0.35f, 0.50f, 0.8f);
+
+            Button topBtn = topCornerLobbyBtn.AddComponent<Button>();
             topBtn.onClick.AddListener(ShowLobby);
 
-            GameObject topBtnTextObj = new GameObject("Text");
-            topBtnTextObj.transform.SetParent(topBtnObj.transform, false);
-            RectTransform tbtr = topBtnTextObj.AddComponent<RectTransform>();
-            tbtr.anchorMin = Vector2.zero;
-            tbtr.anchorMax = Vector2.one;
-            tbtr.sizeDelta = Vector2.zero;
+            TextMeshProUGUI tbTmp = CreateTMPText(topCornerLobbyBtn, "ROOM LOBBY", 14, FontStyles.Bold,
+                Vector2.zero, Vector2.zero, new Color(0.85f, 0.92f, 1f));
+            tbTmp.rectTransform.anchorMin = Vector2.zero;
+            tbTmp.rectTransform.anchorMax = Vector2.one;
+            tbTmp.rectTransform.sizeDelta = Vector2.zero;
+            topCornerLobbyBtn.SetActive(false);
 
-            TextMeshProUGUI tbTmp = topBtnTextObj.AddComponent<TextMeshProUGUI>();
-            tbTmp.text = "🌐 MULTIPLAYER ROOMS";
-            tbTmp.fontSize = 15;
-            tbTmp.fontStyle = FontStyles.Bold;
-            tbTmp.alignment = TextAlignmentOptions.Center;
-            tbTmp.color = new Color(0f, 0.95f, 1f);
-
-            // 2. Dim Backdrop
+            // 2. Dim Dark Backdrop
             GameObject backdropObj = new GameObject("Modal_Backdrop");
             backdropObj.transform.SetParent(lobbyRootCanvas.transform, false);
             RectTransform bdRect = backdropObj.AddComponent<RectTransform>();
@@ -124,7 +164,7 @@ namespace AuraKitchen
             bdRect.sizeDelta = Vector2.zero;
 
             Image bdImg = backdropObj.AddComponent<Image>();
-            bdImg.color = new Color(0.04f, 0.06f, 0.1f, 0.88f);
+            bdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.92f);
 
             // 3. Modal Card
             mainModalCard = new GameObject("Modal_Card");
@@ -134,140 +174,169 @@ namespace AuraKitchen
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.pivot = new Vector2(0.5f, 0.5f);
             cardRect.anchoredPosition = Vector2.zero;
-            cardRect.sizeDelta = new Vector2(800, 560);
+            cardRect.sizeDelta = new Vector2(780, 560);
 
             Image cardImg = mainModalCard.AddComponent<Image>();
-            cardImg.color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
+            cardImg.color = new Color(0.09f, 0.12f, 0.18f, 0.98f);
 
-            // Card Title
-            CreateTMPText(mainModalCard, "AURA KITCHEN - MULTIPLAYER", 24, FontStyles.Bold,
-                new Vector2(0, 240), new Vector2(700, 40), new Color(0f, 0.95f, 1f));
+            Outline cardOutline = mainModalCard.AddComponent<Outline>();
+            cardOutline.effectColor = new Color(0.20f, 0.28f, 0.42f, 0.9f);
+            cardOutline.effectDistance = new Vector2(2, -2);
 
-            // Backend Indicator
-            CreateTMPText(mainModalCard, "🟢 Server: panel.sharebotdex.xyz:30015", 13, FontStyles.Normal,
-                new Vector2(0, 205), new Vector2(600, 24), new Color(0f, 1f, 0.65f));
+            // Card Header
+            CreateTMPText(mainModalCard, "AURA KITCHEN - MULTIPLAYER", 22, FontStyles.Bold,
+                new Vector2(0, 240), new Vector2(680, 36), new Color(0.95f, 0.97f, 1f));
 
-            // Close button (X)
-            CreateButton(mainModalCard, "Btn_Close", "✕", new Vector2(360, 240), new Vector2(40, 40),
-                new Color(0.3f, 0.1f, 0.15f, 0.9f), HideLobby);
+            CreateTMPText(mainModalCard, "Server: panel.sharebotdex.xyz:30015", 12, FontStyles.Normal,
+                new Vector2(0, 208), new Vector2(600, 22), new Color(0.45f, 0.75f, 0.65f));
 
-            // Tabs Row
-            tabHostBtn = CreateButton(mainModalCard, "Tab_Host", "👑 Host Room", new Vector2(-240, 160), new Vector2(220, 46),
-                new Color(0.15f, 0.45f, 0.85f), () => SwitchTab("host")).GetComponent<Button>();
+            // Close Button (X)
+            CreateStyledButton(mainModalCard, "Btn_Close", "X", new Vector2(350, 240), new Vector2(40, 40),
+                new Color(0.25f, 0.12f, 0.15f, 0.95f), new Color(0.85f, 0.35f, 0.4f), HideLobby);
 
-            tabJoinBtn = CreateButton(mainModalCard, "Tab_Join", "🔑 Join with Code", new Vector2(0, 160), new Vector2(220, 46),
-                new Color(0.2f, 0.25f, 0.35f), () => SwitchTab("join")).GetComponent<Button>();
+            // Navigation Tabs
+            tabHostBtn = CreateStyledButton(mainModalCard, "Tab_Host", "HOST ROOM", new Vector2(-230, 160), new Vector2(210, 46),
+                new Color(0.18f, 0.35f, 0.60f), Color.white, () => SwitchTab("host")).GetComponent<Button>();
 
-            tabSoloBtn = CreateButton(mainModalCard, "Tab_Solo", "👨‍🍳 Solo Offline", new Vector2(240, 160), new Vector2(220, 46),
-                new Color(0.2f, 0.25f, 0.35f), () => SwitchTab("solo")).GetComponent<Button>();
+            tabJoinBtn = CreateStyledButton(mainModalCard, "Tab_Join", "JOIN WITH CODE", new Vector2(0, 160), new Vector2(210, 46),
+                new Color(0.12f, 0.16f, 0.24f), new Color(0.7f, 0.8f, 0.95f), () => SwitchTab("join")).GetComponent<Button>();
 
-            // --- TAB CONTENT 1: HOST ---
+            tabSoloBtn = CreateStyledButton(mainModalCard, "Tab_Solo", "SOLO OFFLINE", new Vector2(230, 160), new Vector2(210, 46),
+                new Color(0.12f, 0.16f, 0.24f), new Color(0.7f, 0.8f, 0.95f), () => SwitchTab("solo")).GetComponent<Button>();
+
+            // --- TAB 1: HOST VIEW ---
             hostViewObj = new GameObject("View_Host");
             hostViewObj.transform.SetParent(mainModalCard.transform, false);
             RectTransform hvr = hostViewObj.AddComponent<RectTransform>();
             hvr.anchoredPosition = Vector2.zero;
 
-            CreateTMPText(hostViewObj, "SHARE THIS ROOM CODE WITH CHEFS:", 13, FontStyles.Bold,
-                new Vector2(0, 95), new Vector2(600, 26), new Color(0.7f, 0.8f, 0.9f));
+            CreateTMPText(hostViewObj, "ROOM CODE:", 13, FontStyles.Bold,
+                new Vector2(0, 95), new Vector2(500, 24), new Color(0.65f, 0.75f, 0.90f));
 
-            // Room code display box
-            GameObject codeBox = CreateButton(hostViewObj, "Code_Display", generatedRoomCode, new Vector2(-80, 40), new Vector2(220, 56),
-                new Color(0.04f, 0.2f, 0.25f), CopyRoomCode);
-            roomCodeText = codeBox.GetComponentInChildren<TextMeshProUGUI>();
-            roomCodeText.fontSize = 28;
-            roomCodeText.fontStyle = FontStyles.Bold;
-            roomCodeText.color = new Color(0f, 1f, 0.7f);
+            // Code Display & Copy Button
+            GameObject codeCard = CreatePanel(hostViewObj, "Code_Card", new Vector2(-80, 45), new Vector2(220, 56), new Color(0.06f, 0.10f, 0.16f));
+            hostRoomCodeText = CreateTMPText(codeCard, "AUR4", 28, FontStyles.Bold, Vector2.zero, new Vector2(220, 56), new Color(0.2f, 0.85f, 0.65f));
 
-            CreateButton(hostViewObj, "Btn_CopyCode", "📋 COPY CODE", new Vector2(100, 40), new Vector2(140, 50),
-                new Color(0.1f, 0.5f, 0.7f), CopyRoomCode);
+            CreateStyledButton(hostViewObj, "Btn_Copy", "COPY CODE", new Vector2(90, 45), new Vector2(130, 50),
+                new Color(0.15f, 0.25f, 0.40f), Color.white, CopyRoomCode);
 
-            // Chef Slots
-            CreateTMPText(hostViewObj, "CHEFS IN ROOM (1/4):", 12, FontStyles.Bold,
-                new Vector2(0, -10), new Vector2(600, 22), new Color(0.6f, 0.7f, 0.85f));
+            // Chef Slots List
+            CreateTMPText(hostViewObj, "CONNECTED CHEFS (1/4):", 12, FontStyles.Bold,
+                new Vector2(0, -5), new Vector2(600, 22), new Color(0.65f, 0.75f, 0.90f));
 
-            CreateButton(hostViewObj, "Slot_P1", "🔴 Ruby (You/Host)", new Vector2(-240, -45), new Vector2(150, 36), new Color(0.6f, 0.1f, 0.15f), null);
-            CreateButton(hostViewObj, "Slot_P2", "🔵 Sapphire (Open)", new Vector2(-80, -45), new Vector2(150, 36), new Color(0.1f, 0.25f, 0.45f), null);
-            CreateButton(hostViewObj, "Slot_P3", "🟢 Emerald (Open)", new Vector2(80, -45), new Vector2(150, 36), new Color(0.1f, 0.4f, 0.25f), null);
-            CreateButton(hostViewObj, "Slot_P4", "🟡 Amber (Open)", new Vector2(240, -45), new Vector2(150, 36), new Color(0.5f, 0.35f, 0.1f), null);
+            string[] defaultRoles = { "Chef Ruby (P1 - Host)", "Chef Sapphire (P2)", "Chef Emerald (P3)", "Chef Amber (P4)" };
+            for (int i = 0; i < 4; i++)
+            {
+                float x = -240 + (i * 160);
+                GameObject slotCard = CreatePanel(hostViewObj, $"Slot_{i}", new Vector2(x, -45), new Vector2(150, 40),
+                    i == 0 ? new Color(0.35f, 0.10f, 0.15f) : new Color(0.08f, 0.11f, 0.16f));
+                hostSlotTexts[i] = CreateTMPText(slotCard, i == 0 ? defaultRoles[0] : "[OPEN]", 11, FontStyles.Bold,
+                    Vector2.zero, new Vector2(146, 38), i == 0 ? new Color(1f, 0.7f, 0.75f) : new Color(0.45f, 0.55f, 0.70f));
+            }
 
-            CreateButton(hostViewObj, "Btn_StartHost", "🚀 START KITCHEN SHIFT", new Vector2(0, -130), new Vector2(340, 56),
-                new Color(0.1f, 0.75f, 0.4f), StartHostMatch);
+            hostStartGameBtn = CreateStyledButton(hostViewObj, "Btn_StartHost", "START GAME", new Vector2(0, -125), new Vector2(340, 56),
+                new Color(0.08f, 0.55f, 0.35f), Color.white, OnHostStartClicked).GetComponent<Button>();
 
-            // --- TAB CONTENT 2: JOIN ---
+            hostStatusText = CreateTMPText(hostViewObj, "Waiting for players to join...", 12, FontStyles.Normal,
+                new Vector2(0, -180), new Vector2(650, 24), new Color(0.65f, 0.85f, 0.95f));
+
+            // --- TAB 2: JOIN VIEW ---
             joinViewObj = new GameObject("View_Join");
             joinViewObj.transform.SetParent(mainModalCard.transform, false);
             RectTransform jvr = joinViewObj.AddComponent<RectTransform>();
             jvr.anchoredPosition = Vector2.zero;
-            joinViewObj.SetActive(false);
 
-            CreateTMPText(joinViewObj, "ENTER THE 4-LETTER ROOM CODE:", 14, FontStyles.Bold,
-                new Vector2(0, 80), new Vector2(600, 26), new Color(0.7f, 0.8f, 0.9f));
+            CreateTMPText(joinViewObj, "ENTER 4-LETTER ROOM CODE:", 14, FontStyles.Bold,
+                new Vector2(0, 80), new Vector2(500, 26), new Color(0.80f, 0.88f, 0.98f));
 
-            // Join input field
-            GameObject inputObj = new GameObject("Input_RoomCode");
-            inputObj.transform.SetParent(joinViewObj.transform, false);
-            RectTransform ipRect = inputObj.AddComponent<RectTransform>();
-            ipRect.anchoredPosition = new Vector2(0, 20);
-            ipRect.sizeDelta = new Vector2(280, 54);
-
-            Image ipImg = inputObj.AddComponent<Image>();
-            ipImg.color = new Color(0.04f, 0.08f, 0.14f);
-
-            joinCodeInput = inputObj.AddComponent<TMP_InputField>();
-            joinCodeInput.characterLimit = 6;
+            GameObject ipBox = CreatePanel(joinViewObj, "Input_Container", new Vector2(0, 20), new Vector2(260, 56), new Color(0.05f, 0.08f, 0.12f));
+            joinCodeInput = ipBox.AddComponent<TMP_InputField>();
+            joinCodeInput.characterLimit = 4;
             joinCodeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
 
-            GameObject textObj = new GameObject("Text");
-            textObj.transform.SetParent(inputObj.transform, false);
-            RectTransform tr = textObj.AddComponent<RectTransform>();
-            tr.anchorMin = Vector2.zero;
-            tr.anchorMax = Vector2.one;
-            tr.sizeDelta = Vector2.zero;
-            TextMeshProUGUI ipTmp = textObj.AddComponent<TextMeshProUGUI>();
-            ipTmp.fontSize = 24;
-            ipTmp.alignment = TextAlignmentOptions.Center;
-            ipTmp.color = Color.white;
+            TextMeshProUGUI ipTmp = CreateTMPText(ipBox, "", 26, FontStyles.Bold, Vector2.zero, new Vector2(250, 50), Color.white);
             joinCodeInput.textComponent = ipTmp;
 
-            CreateButton(joinViewObj, "Btn_JoinSubmit", "🤝 JOIN KITCHEN ROOM", new Vector2(0, -60), new Vector2(300, 54),
-                new Color(0.15f, 0.65f, 0.95f), JoinRoomSubmit);
+            joinSubmitBtn = CreateStyledButton(joinViewObj, "Btn_JoinSubmit", "JOIN ROOM", new Vector2(0, -60), new Vector2(280, 54),
+                new Color(0.12f, 0.45f, 0.75f), Color.white, OnJoinSubmitClicked).GetComponent<Button>();
 
-            // --- TAB CONTENT 3: SOLO ---
+            joinStatusText = CreateTMPText(joinViewObj, "", 12, FontStyles.Normal,
+                new Vector2(0, -120), new Vector2(600, 26), new Color(0.9f, 0.4f, 0.4f));
+
+            // --- GUEST WAITING VIEW (Active after joining room) ---
+            guestWaitingViewObj = new GameObject("View_GuestWaiting");
+            guestWaitingViewObj.transform.SetParent(mainModalCard.transform, false);
+            RectTransform gwvr = guestWaitingViewObj.AddComponent<RectTransform>();
+            gwvr.anchoredPosition = Vector2.zero;
+            guestWaitingViewObj.SetActive(false);
+
+            CreateTMPText(guestWaitingViewObj, "CONNECTED TO ROOM:", 13, FontStyles.Bold,
+                new Vector2(0, 95), new Vector2(500, 24), new Color(0.65f, 0.75f, 0.90f));
+
+            guestRoomCodeText = CreateTMPText(guestWaitingViewObj, "AUR4", 28, FontStyles.Bold,
+                new Vector2(0, 55), new Vector2(300, 44), new Color(0.2f, 0.85f, 0.65f));
+
+            guestRoleText = CreateTMPText(guestWaitingViewObj, "YOUR ROLE: Chef Sapphire (P2)", 14, FontStyles.Bold,
+                new Vector2(0, 10), new Vector2(500, 28), new Color(0.4f, 0.75f, 1f));
+
+            guestWaitingStatusText = CreateTMPText(guestWaitingViewObj, "WAITING FOR HOST TO START GAME...", 15, FontStyles.Bold,
+                new Vector2(0, -50), new Vector2(600, 36), new Color(0.98f, 0.75f, 0.15f));
+
+            guestLeaveBtn = CreateStyledButton(guestWaitingViewObj, "Btn_Leave", "LEAVE ROOM", new Vector2(0, -130), new Vector2(240, 48),
+                new Color(0.35f, 0.15f, 0.18f), Color.white, OnLeaveRoomClicked).GetComponent<Button>();
+
+            // --- TAB 3: SOLO VIEW ---
             soloViewObj = new GameObject("View_Solo");
             soloViewObj.transform.SetParent(mainModalCard.transform, false);
             RectTransform svr = soloViewObj.AddComponent<RectTransform>();
             svr.anchoredPosition = Vector2.zero;
-            soloViewObj.SetActive(false);
 
-            CreateTMPText(soloViewObj, "SOLO OFFLINE SHIFT", 16, FontStyles.Bold,
-                new Vector2(0, 70), new Vector2(600, 30), new Color(1f, 0.85f, 0.2f));
+            CreateTMPText(soloViewObj, "SOLO OFFLINE SHIFT", 18, FontStyles.Bold,
+                new Vector2(0, 70), new Vector2(500, 32), new Color(0.95f, 0.97f, 1f));
 
-            CreateTMPText(soloViewObj, "Play offline with full control of 2 chefs,\nTab/Touch switching, and Sous-Chef assistant!", 14, FontStyles.Normal,
+            CreateTMPText(soloViewObj, "Play offline with full control of 2 chefs,\ninstant Chef Switch, and Sous-Chef assistant!", 14, FontStyles.Normal,
                 new Vector2(0, 15), new Vector2(600, 50), new Color(0.75f, 0.85f, 0.95f));
 
-            CreateButton(soloViewObj, "Btn_StartSolo", "👨‍🍳 START SOLO SHIFT", new Vector2(0, -70), new Vector2(300, 54),
-                new Color(0.9f, 0.5f, 0.15f), StartSoloMatch);
+            CreateStyledButton(soloViewObj, "Btn_StartSolo", "START SOLO SHIFT", new Vector2(0, -70), new Vector2(300, 54),
+                new Color(0.85f, 0.45f, 0.12f), Color.white, OnStartSoloClicked);
 
-            // Status message
-            statusMsgText = CreateTMPText(mainModalCard, "", 12, FontStyles.Normal,
-                new Vector2(0, -215), new Vector2(700, 24), new Color(0f, 0.95f, 1f));
+            // Bottom Global Status
+            globalStatusText = CreateTMPText(mainModalCard, "", 12, FontStyles.Normal,
+                new Vector2(0, -220), new Vector2(700, 24), new Color(0.7f, 0.8f, 0.9f));
         }
 
         private void SwitchTab(string tab)
         {
+            if (isWaitingInRoom && tab != "guest_waiting")
+            {
+                // If currently waiting in a joined room as guest, show the guest waiting screen
+                tab = "guest_waiting";
+            }
+
             hostViewObj.SetActive(tab == "host");
             joinViewObj.SetActive(tab == "join");
+            guestWaitingViewObj.SetActive(tab == "guest_waiting");
             soloViewObj.SetActive(tab == "solo");
 
-            tabHostBtn.image.color = tab == "host" ? new Color(0.15f, 0.45f, 0.85f) : new Color(0.2f, 0.25f, 0.35f);
-            tabJoinBtn.image.color = tab == "join" ? new Color(0.15f, 0.45f, 0.85f) : new Color(0.2f, 0.25f, 0.35f);
-            tabSoloBtn.image.color = tab == "solo" ? new Color(0.15f, 0.45f, 0.85f) : new Color(0.2f, 0.25f, 0.35f);
+            tabHostBtn.image.color = tab == "host" ? new Color(0.18f, 0.35f, 0.60f) : new Color(0.12f, 0.16f, 0.24f);
+            tabJoinBtn.image.color = (tab == "join" || tab == "guest_waiting") ? new Color(0.18f, 0.35f, 0.60f) : new Color(0.12f, 0.16f, 0.24f);
+            tabSoloBtn.image.color = tab == "solo" ? new Color(0.18f, 0.35f, 0.60f) : new Color(0.12f, 0.16f, 0.24f);
 
             if (tab == "host")
             {
                 isHost = true;
-                GenerateNewCode();
+                isWaitingInRoom = false;
+                InitializeHostRoom();
             }
+        }
+
+        private void InitializeHostRoom()
+        {
+            GenerateNewCode();
+            StartCoroutine(RegisterRoomOnServer(activeRoomCode, "Chef Ruby (Host)"));
+
+            if (roomPollCoroutine != null) StopCoroutine(roomPollCoroutine);
+            roomPollCoroutine = StartCoroutine(HostPollRoomState());
         }
 
         private void GenerateNewCode()
@@ -276,109 +345,329 @@ namespace AuraKitchen
             char[] code = new char[4];
             var rnd = new System.Random();
             for (int i = 0; i < 4; i++) code[i] = chars[rnd.Next(chars.Length)];
-            generatedRoomCode = new string(code);
-            if (roomCodeText != null) roomCodeText.text = generatedRoomCode;
-
-            // Notify server if connected
-            if (AuraWebSocketClient.Instance != null && AuraWebSocketClient.Instance.IsConnected)
-            {
-                AuraWebSocketClient.Instance.CreateRoom("Chef Ruby");
-            }
+            activeRoomCode = new string(code);
+            if (hostRoomCodeText != null) hostRoomCodeText.text = activeRoomCode;
         }
 
         private void CopyRoomCode()
         {
-            GUIUtility.systemCopyBuffer = generatedRoomCode;
-            UpdateStatus($"📋 Code '{generatedRoomCode}' copied to clipboard!");
+            GUIUtility.systemCopyBuffer = activeRoomCode;
+            if (hostStatusText != null) hostStatusText.text = $"Room Code '{activeRoomCode}' copied to clipboard.";
         }
 
-        private void StartHostMatch()
+        private void OnHostStartClicked()
         {
-            PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
-            PlayerPrefs.SetString("Aura_RoomCode", generatedRoomCode);
-            HideLobby();
+            if (hostStartGameBtn != null) hostStartGameBtn.interactable = false;
+            if (hostStatusText != null) hostStatusText.text = "Starting shift...";
 
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
+            StartCoroutine(PostRoomStart(activeRoomCode, (success, msg) =>
             {
-                SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
-            }
+                PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
+                PlayerPrefs.SetString("Aura_RoomCode", activeRoomCode);
+                PlayerPrefs.SetInt("Aura_PlayerSlot", 0);
+
+                HideLobby();
+                if (SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
+                {
+                    SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
+                }
+            }));
         }
 
-        private void JoinRoomSubmit()
+        private void OnJoinSubmitClicked()
         {
             string code = joinCodeInput != null ? joinCodeInput.text.Trim().ToUpper() : "";
-            if (string.IsNullOrEmpty(code))
+            if (string.IsNullOrEmpty(code) || code.Length < 3)
             {
-                UpdateStatus("⚠️ Please enter a room code!");
+                if (joinStatusText != null) joinStatusText.text = "Please enter a valid 4-letter room code.";
                 return;
             }
 
-            UpdateStatus($"Connecting to Room {code}... ⏳");
+            if (joinStatusText != null) joinStatusText.text = "Connecting to room...";
+            if (joinSubmitBtn != null) joinSubmitBtn.interactable = false;
 
-            if (AuraWebSocketClient.Instance != null)
+            StartCoroutine(PostRoomJoin(code, "Chef Sapphire", (success, response) =>
             {
-                AuraWebSocketClient.Instance.JoinRoom(code, "Chef Sapphire");
-            }
+                if (joinSubmitBtn != null) joinSubmitBtn.interactable = true;
 
-            PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
-            PlayerPrefs.SetString("Aura_RoomCode", code);
+                if (!success)
+                {
+                    // CRITICAL: DO NOT START GAME ON ERROR
+                    if (joinStatusText != null)
+                    {
+                        joinStatusText.text = "Room not found or shift already started. Check code.";
+                    }
+                    return;
+                }
 
-            StartCoroutine(DelayEnterGame());
+                // Parse slot index from response if present
+                activeRoomCode = code;
+                isHost = false;
+                isWaitingInRoom = true;
+                mySlotIndex = 1;
+                if (response.Contains("\"slot\":"))
+                {
+                    int idx = response.IndexOf("\"slot\":") + 7;
+                    if (idx < response.Length && char.IsDigit(response[idx]))
+                    {
+                        mySlotIndex = response[idx] - '0';
+                    }
+                }
+
+                // Switch to waiting room screen
+                SwitchTab("guest_waiting");
+                if (guestRoomCodeText != null) guestRoomCodeText.text = activeRoomCode;
+                string[] chefNames = { "Chef Ruby (P1)", "Chef Sapphire (P2)", "Chef Emerald (P3)", "Chef Amber (P4)" };
+                if (guestRoleText != null) guestRoleText.text = $"YOUR ROLE: {chefNames[Mathf.Clamp(mySlotIndex, 0, 3)]}";
+
+                if (roomPollCoroutine != null) StopCoroutine(roomPollCoroutine);
+                roomPollCoroutine = StartCoroutine(GuestPollRoomState());
+            }));
         }
 
-        private IEnumerator DelayEnterGame()
+        private void OnLeaveRoomClicked()
         {
-            yield return new WaitForSeconds(0.6f);
-            HideLobby();
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
-            {
-                SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
-            }
+            isWaitingInRoom = false;
+            if (roomPollCoroutine != null) StopCoroutine(roomPollCoroutine);
+            StartCoroutine(PostRoomLeave(activeRoomCode, mySlotIndex));
+            SwitchTab("join");
+            if (joinStatusText != null) joinStatusText.text = "Left the room.";
         }
 
-        private void StartSoloMatch()
+        private void OnStartSoloClicked()
         {
             PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.SoloSwitch);
             HideLobby();
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
+            if (SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
             {
                 SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
             }
         }
 
-        public void ShowLobby()
+        private IEnumerator HostPollRoomState()
         {
-            if (lobbyRootCanvas != null)
+            while (isHost && !isWaitingInRoom)
             {
-                lobbyRootCanvas.transform.Find("Modal_Backdrop")?.gameObject.SetActive(true);
+                yield return new WaitForSeconds(1.2f);
+                yield return StartCoroutine(GetRoomState(activeRoomCode, (success, json) =>
+                {
+                    if (success && !string.IsNullOrEmpty(json))
+                    {
+                        UpdateHostSlotsDisplay(json);
+                    }
+                }));
             }
         }
 
-        public void HideLobby()
+        private void UpdateHostSlotsDisplay(string json)
         {
-            if (lobbyRootCanvas != null)
+            // Simple robust JSON checks
+            int count = 1;
+            if (json.Contains("Chef Sapphire") || json.Contains("\"slot\":1"))
             {
-                lobbyRootCanvas.transform.Find("Modal_Backdrop")?.gameObject.SetActive(false);
+                count = Mathf.Max(count, 2);
+                if (hostSlotTexts[1] != null)
+                {
+                    hostSlotTexts[1].text = "Chef Sapphire (P2)";
+                    hostSlotTexts[1].color = new Color(0.4f, 0.75f, 1f);
+                }
+            }
+            if (json.Contains("Chef Emerald") || json.Contains("\"slot\":2"))
+            {
+                count = Mathf.Max(count, 3);
+                if (hostSlotTexts[2] != null)
+                {
+                    hostSlotTexts[2].text = "Chef Emerald (P3)";
+                    hostSlotTexts[2].color = new Color(0.3f, 0.9f, 0.5f);
+                }
+            }
+            if (json.Contains("Chef Amber") || json.Contains("\"slot\":3"))
+            {
+                count = Mathf.Max(count, 4);
+                if (hostSlotTexts[3] != null)
+                {
+                    hostSlotTexts[3].text = "Chef Amber (P4)";
+                    hostSlotTexts[3].color = new Color(1f, 0.8f, 0.3f);
+                }
+            }
+
+            if (hostStatusText != null)
+            {
+                hostStatusText.text = $"Connected Chefs: {count}/4. Ready to start when you are!";
             }
         }
 
-        private void UpdateStatus(string msg)
+        private IEnumerator GuestPollRoomState()
         {
-            if (statusMsgText != null)
+            int dots = 0;
+            while (isWaitingInRoom)
             {
-                statusMsgText.text = msg;
+                dots = (dots + 1) % 4;
+                string dotStr = new string('.', dots);
+                if (guestWaitingStatusText != null)
+                {
+                    guestWaitingStatusText.text = $"WAITING FOR HOST TO START GAME{dotStr}";
+                }
+
+                yield return new WaitForSeconds(0.8f);
+
+                yield return StartCoroutine(GetRoomState(activeRoomCode, (success, json) =>
+                {
+                    if (success && json.Contains("\"isPlaying\":true"))
+                    {
+                        // HOST STARTED THE GAME!
+                        isWaitingInRoom = false;
+                        if (guestWaitingStatusText != null)
+                        {
+                            guestWaitingStatusText.text = "Host started the match! Entering kitchen...";
+                        }
+
+                        PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
+                        PlayerPrefs.SetString("Aura_RoomCode", activeRoomCode);
+                        PlayerPrefs.SetInt("Aura_PlayerSlot", mySlotIndex);
+
+                        StartCoroutine(EnterGameAfterDelay());
+                    }
+                }));
             }
         }
 
-        private TextMeshProUGUI CreateTMPText(GameObject parent, string text, float size, FontStyles style, Vector2 pos, Vector2 sizeDelta, Color color)
+        private IEnumerator EnterGameAfterDelay()
         {
-            GameObject obj = new GameObject("Text_" + text.Substring(0, Mathf.Min(8, text.Length)));
-            obj.transform.SetParent(parent.transform, false);
-            RectTransform rect = obj.AddComponent<RectTransform>();
-            rect.anchoredPosition = pos;
-            rect.sizeDelta = sizeDelta;
+            yield return new WaitForSeconds(0.4f);
+            HideLobby();
+            if (SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
+            {
+                SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
+            }
+        }
 
-            TextMeshProUGUI tmp = obj.AddComponent<TextMeshProUGUI>();
+        // --- HTTP REST HELPERS ---
+        private IEnumerator RegisterRoomOnServer(string code, string hostName)
+        {
+            string url = $"{serverBaseUrl}/api/room/create";
+            string json = $"{{\"code\":\"{code}\",\"hostName\":\"{hostName}\"}}";
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
+            }
+        }
+
+        private IEnumerator PostRoomJoin(string code, string playerName, Action<bool, string> onComplete)
+        {
+            string url = $"{serverBaseUrl}/api/room/join";
+            string json = $"{{\"code\":\"{code}\",\"playerName\":\"{playerName}\"}}";
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
+
+                bool ok = req.result == UnityWebRequest.Result.Success;
+                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+            }
+        }
+
+        private IEnumerator GetRoomState(string code, Action<bool, string> onComplete)
+        {
+            string url = $"{serverBaseUrl}/api/room/{code}";
+            using (UnityWebRequest req = UnityWebRequest.Get(url))
+            {
+                req.timeout = 5;
+                yield return req.SendWebRequest();
+                bool ok = req.result == UnityWebRequest.Result.Success;
+                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+            }
+        }
+
+        private IEnumerator PostRoomStart(string code, Action<bool, string> onComplete)
+        {
+            string url = $"{serverBaseUrl}/api/room/{code}/start";
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                byte[] body = Encoding.UTF8.GetBytes("{}");
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
+                bool ok = req.result == UnityWebRequest.Result.Success;
+                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+            }
+        }
+
+        private IEnumerator PostRoomLeave(string code, int slot)
+        {
+            string url = $"{serverBaseUrl}/api/room/{code}/leave";
+            string json = $"{{\"slot\":{slot}}}";
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
+            }
+        }
+
+        // --- PROCEDURAL UI GENERATION UTILITIES ---
+        private GameObject CreatePanel(GameObject parent, string name, Vector2 pos, Vector2 size, Color color)
+        {
+            GameObject p = new GameObject(name);
+            p.transform.SetParent(parent.transform, false);
+            RectTransform rt = p.AddComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            Image img = p.AddComponent<Image>();
+            img.color = color;
+            return p;
+        }
+
+        private GameObject CreateStyledButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color bgColor, Color textColor, Action onClick = null)
+        {
+            GameObject btnObj = new GameObject(name);
+            btnObj.transform.SetParent(parent.transform, false);
+            RectTransform rt = btnObj.AddComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            Image img = btnObj.AddComponent<Image>();
+            img.color = bgColor;
+
+            Outline outline = btnObj.AddComponent<Outline>();
+            outline.effectColor = new Color(bgColor.r * 1.4f, bgColor.g * 1.4f, bgColor.b * 1.4f, 0.7f);
+            outline.effectDistance = new Vector2(1, -1);
+
+            Button btn = btnObj.AddComponent<Button>();
+            ColorBlock cb = btn.colors;
+            cb.normalColor = bgColor;
+            cb.highlightedColor = bgColor * 1.25f;
+            cb.pressedColor = bgColor * 0.8f;
+            btn.colors = cb;
+            if (onClick != null) btn.onClick.AddListener(() => onClick());
+
+            TextMeshProUGUI tmp = CreateTMPText(btnObj, label, 15, FontStyles.Bold, Vector2.zero, size, textColor);
+            tmp.rectTransform.anchorMin = Vector2.zero;
+            tmp.rectTransform.anchorMax = Vector2.one;
+            tmp.rectTransform.sizeDelta = Vector2.zero;
+
+            return btnObj;
+        }
+
+        private TextMeshProUGUI CreateTMPText(GameObject parent, string text, float size, FontStyles style, Vector2 pos, Vector2 dimensions, Color color)
+        {
+            GameObject tObj = new GameObject("Text");
+            tObj.transform.SetParent(parent.transform, false);
+            RectTransform rt = tObj.AddComponent<RectTransform>();
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = dimensions;
+
+            TextMeshProUGUI tmp = tObj.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
             tmp.fontSize = size;
             tmp.fontStyle = style;
@@ -387,41 +676,5 @@ namespace AuraKitchen
             tmp.raycastTarget = false;
             return tmp;
         }
-
-        private GameObject CreateButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color color, Action onClick)
-        {
-            GameObject btnObj = new GameObject(name);
-            btnObj.transform.SetParent(parent.transform, false);
-            RectTransform rect = btnObj.AddComponent<RectTransform>();
-            rect.anchoredPosition = pos;
-            rect.sizeDelta = size;
-
-            Image img = btnObj.AddComponent<Image>();
-            img.color = color;
-
-            Button btn = btnObj.AddComponent<Button>();
-            if (onClick != null)
-            {
-                btn.onClick.AddListener(() => onClick.Invoke());
-            }
-
-            GameObject textObj = new GameObject("Label");
-            textObj.transform.SetParent(btnObj.transform, false);
-            RectTransform tr = textObj.AddComponent<RectTransform>();
-            tr.anchorMin = Vector2.zero;
-            tr.anchorMax = Vector2.one;
-            tr.sizeDelta = Vector2.zero;
-
-            TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
-            tmp.text = label;
-            tmp.fontSize = 15;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = Color.white;
-            tmp.raycastTarget = false;
-
-            return btnObj;
-        }
     }
 }
-
