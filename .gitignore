@@ -146,3 +146,9 @@ PackageBackups/
 # Node.js dependencies
 node_modules/
 server/node_modules/
+
+# Local session state & temp
+.antigravity/
+.state.md
+*.zip
+.vsconfig
