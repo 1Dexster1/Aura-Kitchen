@@ -49,6 +49,7 @@ jobs:
           targetPlatform: Android
           unityVersion: 2022.3.1f1
           androidExportType: androidPackage
+          dockerShmSize: 3g
           buildsPath: build
 
       - name: Output Unity Log on Failure
