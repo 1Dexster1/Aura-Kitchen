@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 namespace AuraKitchen
@@ -23,10 +24,11 @@ namespace AuraKitchen
         [SerializeField] private RectTransform joystickHandle;
 
         [Header("Configuration")]
-        [SerializeField] private float joystickRadius = 80f;
+        [SerializeField] private float joystickRadius = 90f;
 
         private int activeJoystickFingerId = -1;
         private Vector2 joystickCenterPos = Vector2.zero;
+        private static Sprite cachedCircleSprite;
 
         private void Awake()
         {
@@ -36,8 +38,9 @@ namespace AuraKitchen
                 return;
             }
             Instance = this;
+            DontDestroyOnLoad(gameObject);
 
-            // Ensure smooth 60 FPS performance on Android & keep screen on
+            // Lock 60 FPS on Android & prevent screen timeout
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
@@ -48,21 +51,50 @@ namespace AuraKitchen
                 GameObject esObj = new GameObject("Aura_EventSystem");
                 esObj.AddComponent<EventSystem>();
                 esObj.AddComponent<StandaloneInputModule>();
+                DontDestroyOnLoad(esObj);
             }
 
-            // Procedurally create mobile controls if not assigned
             if (mobileControlsRoot == null)
             {
                 CreateProceduralMobileUI();
             }
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            UpdateControlsVisibility(SceneManager.GetActiveScene().name);
+        }
+
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            UpdateControlsVisibility(scene.name);
+        }
+
+        public void EnsureControlsVisible(bool visible)
+        {
+            if (mobileControlsRoot != null)
+            {
+                mobileControlsRoot.SetActive(visible);
+            }
+        }
+
+        private void UpdateControlsVisibility(string sceneName)
+        {
+            bool isGame = sceneName == SceneSwitcher.Scene.GameScene.ToString();
+            EnsureControlsVisible(isGame);
         }
 
         private void CreateProceduralMobileUI()
         {
             mobileControlsRoot = new GameObject("Aura_MobileControls_Canvas");
+            DontDestroyOnLoad(mobileControlsRoot);
+
             Canvas canvas = mobileControlsRoot.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 999;
+            canvas.sortingOrder = 9999; // Always on top of everything
 
             CanvasScaler scaler = mobileControlsRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -71,21 +103,28 @@ namespace AuraKitchen
 
             mobileControlsRoot.AddComponent<GraphicRaycaster>();
 
-            // 1. Virtual Joystick Container (Bottom-Left)
+            Sprite circle = GetCircleSprite();
+
+            // 1. Virtual Joystick (Bottom-Left)
             GameObject joyBgObj = new GameObject("Joystick_Background");
             joyBgObj.transform.SetParent(mobileControlsRoot.transform, false);
             joystickBackground = joyBgObj.AddComponent<RectTransform>();
             joystickBackground.anchorMin = new Vector2(0, 0);
             joystickBackground.anchorMax = new Vector2(0, 0);
             joystickBackground.pivot = new Vector2(0.5f, 0.5f);
-            joystickBackground.anchoredPosition = new Vector2(180, 180);
-            joystickBackground.sizeDelta = new Vector2(180, 180);
+            joystickBackground.anchoredPosition = new Vector2(210, 210);
+            joystickBackground.sizeDelta = new Vector2(210, 210);
 
             Image joyBgImg = joyBgObj.AddComponent<Image>();
-            joyBgImg.color = new Color(0.08f, 0.12f, 0.2f, 0.65f); // Deep glass navy
+            joyBgImg.sprite = circle;
+            joyBgImg.color = new Color(0.06f, 0.10f, 0.18f, 0.70f);
             joyBgImg.raycastTarget = false;
 
-            // Joystick knob / handle
+            Outline joyBgOutline = joyBgObj.AddComponent<Outline>();
+            joyBgOutline.effectColor = new Color(0.0f, 0.85f, 1.0f, 0.75f);
+            joyBgOutline.effectDistance = new Vector2(3, -3);
+
+            // Joystick Handle Knob
             GameObject joyHandleObj = new GameObject("Joystick_Handle");
             joyHandleObj.transform.SetParent(joyBgObj.transform, false);
             joystickHandle = joyHandleObj.AddComponent<RectTransform>();
@@ -93,32 +132,33 @@ namespace AuraKitchen
             joystickHandle.anchorMax = new Vector2(0.5f, 0.5f);
             joystickHandle.pivot = new Vector2(0.5f, 0.5f);
             joystickHandle.anchoredPosition = Vector2.zero;
-            joystickHandle.sizeDelta = new Vector2(80, 80);
+            joystickHandle.sizeDelta = new Vector2(95, 95);
 
             Image joyHandleImg = joyHandleObj.AddComponent<Image>();
-            joyHandleImg.color = new Color(0f, 0.9f, 1f, 0.85f); // Glowing Aura Cyan
+            joyHandleImg.sprite = circle;
+            joyHandleImg.color = new Color(0.0f, 0.92f, 1.0f, 0.90f);
             joyHandleImg.raycastTarget = false;
 
-            // 2. Action Buttons Container (Bottom-Right)
-            // Button A: PICK / DROP (Large Emerald)
-            CreateActionButton("Btn_Interact", "PICK\nDROP", new Vector2(-130, 130), new Vector2(120, 120),
-                new Color(0.1f, 0.85f, 0.45f, 0.9f), () =>
+            // 2. Action Buttons (Bottom-Right)
+            // Primary Interact (Pick/Drop) - Emerald
+            CreateActionButton("Btn_Interact", "PICK\nDROP", new Vector2(-140, 140), new Vector2(125, 125),
+                new Color(0.05f, 0.75f, 0.40f, 0.95f), () =>
                 {
                     OnInteractPressed?.Invoke(this, EventArgs.Empty);
                     TriggerActivePlayerInteract();
                 });
 
-            // Button B: CHOP / COOK (Large Amber/Orange)
-            CreateActionButton("Btn_ActionAlt", "CHOP\nUSE", new Vector2(-270, 130), new Vector2(110, 110),
-                new Color(1f, 0.6f, 0.1f, 0.9f), () =>
+            // Secondary Action (Chop/Use) - Amber
+            CreateActionButton("Btn_ActionAlt", "CHOP\nUSE", new Vector2(-285, 140), new Vector2(115, 115),
+                new Color(0.95f, 0.55f, 0.10f, 0.95f), () =>
                 {
                     OnInteractAltPressed?.Invoke(this, EventArgs.Empty);
                     TriggerActivePlayerInteractAlt();
                 });
 
-            // Button C: SWITCH CHEF (Magenta / Purple)
-            CreateActionButton("Btn_SwitchChef", "SWITCH\nCHEF", new Vector2(-130, 270), new Vector2(95, 95),
-                new Color(0.85f, 0.2f, 0.85f, 0.9f), () =>
+            // Switch Chef - Purple
+            CreateActionButton("Btn_SwitchChef", "SWITCH\nCHEF", new Vector2(-140, 285), new Vector2(100, 100),
+                new Color(0.75f, 0.25f, 0.85f, 0.95f), () =>
                 {
                     OnSwitchChefPressed?.Invoke(this, EventArgs.Empty);
                     if (SoloChefController.Instance != null)
@@ -127,9 +167,9 @@ namespace AuraKitchen
                     }
                 });
 
-            // Button D: DASH / SPRINT (Electric Blue)
-            CreateActionButton("Btn_Dash", "DASH\nRUN", new Vector2(-270, 260), new Vector2(90, 90),
-                new Color(0.15f, 0.65f, 1f, 0.9f), () =>
+            // Dash / Sprint - Electric Blue
+            CreateActionButton("Btn_Dash", "DASH\nRUN", new Vector2(-285, 275), new Vector2(95, 95),
+                new Color(0.15f, 0.60f, 0.95f, 0.95f), () =>
                 {
                     IsTouchSprinting = !IsTouchSprinting;
                 });
@@ -148,17 +188,22 @@ namespace AuraKitchen
             rect.sizeDelta = size;
 
             Image img = btnObj.AddComponent<Image>();
+            img.sprite = GetCircleSprite();
             img.color = color;
+
+            Outline outline = btnObj.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.4f);
+            outline.effectDistance = new Vector2(2, -2);
 
             Button btn = btnObj.AddComponent<Button>();
             ColorBlock cb = btn.colors;
             cb.normalColor = color;
             cb.highlightedColor = Color.white;
-            cb.pressedColor = color * 0.7f;
+            cb.pressedColor = color * 0.75f;
             btn.colors = cb;
             btn.onClick.AddListener(() => onClick?.Invoke());
 
-            // Label Text
+            // Label Text using official game font
             GameObject textObj = new GameObject("Label");
             textObj.transform.SetParent(btnObj.transform, false);
             RectTransform textRect = textObj.AddComponent<RectTransform>();
@@ -167,6 +212,12 @@ namespace AuraKitchen
             textRect.sizeDelta = Vector2.zero;
 
             TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
+            TMP_FontAsset gameFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (gameFont != null)
+            {
+                tmp.font = gameFont;
+                tmp.fontSharedMaterial = gameFont.material;
+            }
             tmp.text = label;
             tmp.fontSize = 20;
             tmp.fontStyle = FontStyles.Bold;
@@ -184,7 +235,6 @@ namespace AuraKitchen
 
         private void HandleDirectTouchInput()
         {
-            // Support both Mobile Touches and Mouse Dragging
             if (Input.touchCount > 0)
             {
                 bool foundJoyTouch = false;
@@ -192,7 +242,7 @@ namespace AuraKitchen
                 {
                     Touch t = Input.GetTouch(i);
 
-                    // If finger touched left side of screen
+                    // Touch on left half of screen controls movement joystick
                     if (t.position.x < Screen.width * 0.5f)
                     {
                         if (t.phase == TouchPhase.Began)
@@ -222,7 +272,6 @@ namespace AuraKitchen
             }
             else if (Input.GetMouseButton(0))
             {
-                // Mouse drag fallback for PC testing
                 Vector2 mousePos = Input.mousePosition;
                 if (mousePos.x < Screen.width * 0.5f)
                 {
@@ -280,6 +329,27 @@ namespace AuraKitchen
             {
                 p.InteractAltAction(this, EventArgs.Empty);
             }
+        }
+
+        public static Sprite GetCircleSprite()
+        {
+            if (cachedCircleSprite != null) return cachedCircleSprite;
+            int size = 128;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size / 2f;
+            float radius = size / 2f - 2f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                    float alpha = Mathf.Clamp01((radius - dist) + 0.5f);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+            cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return cachedCircleSprite;
         }
     }
 }

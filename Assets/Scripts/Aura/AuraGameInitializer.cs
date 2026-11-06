@@ -5,13 +5,23 @@ namespace AuraKitchen
 {
     public static class AuraGameInitializer
     {
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void OnSceneLoaded()
+        private static bool isHooked = false;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void OnAppStart()
+        {
+            if (!isHooked)
+            {
+                isHooked = true;
+                SceneManager.sceneLoaded += HandleSceneLoaded;
+            }
+        }
+
+        private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             InitializeGlobalSystems();
 
-            string sceneName = SceneManager.GetActiveScene().name;
-            if (sceneName == SceneSwitcher.Scene.GameScene.ToString())
+            if (scene.name == SceneSwitcher.Scene.GameScene.ToString())
             {
                 InitializeGameScene();
             }
@@ -26,16 +36,22 @@ namespace AuraKitchen
                 Object.DontDestroyOnLoad(auraRoot);
             }
 
-            // Backend Networking
+            // 1. Backend Networking
             if (Object.FindObjectOfType<AuraWebSocketClient>() == null)
             {
                 auraRoot.AddComponent<AuraWebSocketClient>();
             }
 
-            // In-Game & Menu Multiplayer Lobby (Create Room, Join, Host)
+            // 2. In-Game & Menu Multiplayer Lobby (Create Room, Join, Host)
             if (Object.FindObjectOfType<AuraMultiplayerLobbyUI>() == null)
             {
                 auraRoot.AddComponent<AuraMultiplayerLobbyUI>();
+            }
+
+            // 3. Mobile Controls (Persistent Global System)
+            if (Object.FindObjectOfType<AuraMobileControls>() == null)
+            {
+                auraRoot.AddComponent<AuraMobileControls>();
             }
         }
 
@@ -79,10 +95,10 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraUIManager>();
             }
 
-            // 6. Mobile & Touch Controls (Virtual Joystick & Action Buttons)
-            if (Object.FindObjectOfType<AuraMobileControls>() == null)
+            // Double check Mobile Controls are active and ready in GameScene
+            if (AuraMobileControls.Instance != null)
             {
-                auraRoot.AddComponent<AuraMobileControls>();
+                AuraMobileControls.Instance.EnsureControlsVisible(true);
             }
 
             Debug.Log("<color=#00e5ff>[Aura Kitchen]</color> Systems initialized successfully for " + SceneManager.GetActiveScene().name);

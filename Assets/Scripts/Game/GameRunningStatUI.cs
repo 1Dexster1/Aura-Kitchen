@@ -36,6 +36,14 @@ public class GameRunningStatUI : MonoBehaviour
         rt.anchoredPosition = new Vector2(0, -20);
         rt.sizeDelta = new Vector2(240, 52);
 
+        // Apply official game font asset & material
+        TMP_FontAsset gameFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        if (gameFont != null)
+        {
+            timeRemainingText.font = gameFont;
+            timeRemainingText.fontSharedMaterial = gameFont.material;
+        }
+
         // Add clean dark rounded badge behind the timer text if not present
         GameObject parentObj = timeRemainingText.gameObject;
         badgeBackground = parentObj.GetComponent<Image>();
