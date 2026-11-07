@@ -155,17 +155,13 @@ namespace AuraKitchen
                 return;
             }
 
-            GameObject customerObj;
-            if (customerPrefab != null)
+            if (customerPrefab == null)
             {
-                customerObj = Instantiate(customerPrefab, customerSpawnPoint.position, Quaternion.identity);
+                seatOccupied[seatIndex] = false;
+                return;
             }
-            else
-            {
-                // Procedural stylized customer representation if prefab is not assigned
-                customerObj = CreateProceduralCustomerObject();
-                customerObj.transform.position = customerSpawnPoint.position;
-            }
+
+            GameObject customerObj = Instantiate(customerPrefab, customerSpawnPoint.position, Quaternion.identity);
 
             Customer customer = customerObj.GetComponent<Customer>();
             if (customer == null) customer = customerObj.AddComponent<Customer>();
@@ -262,35 +258,7 @@ namespace AuraKitchen
             });
         }
 
-        private GameObject CreateProceduralCustomerObject()
-        {
-            // Create a cute customer figure with body capsule and head sphere
-            GameObject root = new GameObject("ProceduralCustomer");
 
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(root.transform);
-            body.transform.localPosition = new Vector3(0, 0.85f, 0);
-            body.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
-
-            // Customer cute chef / patron hat
-            GameObject hat = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            hat.name = "Hat";
-            hat.transform.SetParent(root.transform);
-            hat.transform.localPosition = new Vector3(0, 1.6f, 0);
-            hat.transform.localScale = new Vector3(0.45f, 0.15f, 0.45f);
-
-            // Overhead Canvas for thought bubble & patience
-            GameObject canvasObj = new GameObject("OverheadCanvas");
-            canvasObj.transform.SetParent(root.transform);
-            canvasObj.transform.localPosition = new Vector3(0, 2.3f, 0);
-            Canvas canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvasObj.AddComponent<CanvasScaler>();
-            canvasObj.GetComponent<RectTransform>().sizeDelta = new Vector2(2f, 2f);
-
-            return root;
-        }
     }
 }
 

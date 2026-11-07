@@ -43,24 +43,29 @@ public class MainMenuUI : MonoBehaviour
             RectTransform quitRect = gameQuitButton.GetComponent<RectTransform>();
             RectTransform mpRect = mpObj.GetComponent<RectTransform>();
 
-            // Clean, balanced vertical layout under PLAY
-            // Base X: 150, Width: 450
             float baseX = startRect.anchoredPosition.x;
-            startRect.anchoredPosition = new Vector2(baseX, 390);
-            startRect.sizeDelta = new Vector2(450, 110);
+            const float btnWidth = 520f;
+            const float btnHeight = 95f;
 
-            mpRect.anchoredPosition = new Vector2(baseX, 260);
-            mpRect.sizeDelta = new Vector2(450, 110);
+            startRect.anchoredPosition = new Vector2(baseX, 390);
+            startRect.sizeDelta = new Vector2(btnWidth, btnHeight);
+
+            mpRect.anchoredPosition = new Vector2(baseX, 265);
+            mpRect.sizeDelta = new Vector2(btnWidth, btnHeight);
 
             quitRect.anchoredPosition = new Vector2(baseX, 140);
-            quitRect.sizeDelta = new Vector2(450, 95);
+            quitRect.sizeDelta = new Vector2(btnWidth, btnHeight);
 
-            // Update text to MULTIPLAYER using identical styling
+            // Update text to MULTIPLAYER using identical styling and NO wrapping
             TextMeshProUGUI tmp = mpObj.GetComponentInChildren<TextMeshProUGUI>();
             if (tmp != null)
             {
                 tmp.text = "MULTIPLAYER";
+                ConfigureButtonText(tmp);
             }
+
+            ConfigureButtonText(gameStartButton.GetComponentInChildren<TextMeshProUGUI>());
+            ConfigureButtonText(gameQuitButton.GetComponentInChildren<TextMeshProUGUI>());
 
             gameMultiplayerButton.onClick.RemoveAllListeners();
             gameMultiplayerButton.onClick.AddListener(() =>
@@ -71,5 +76,20 @@ public class MainMenuUI : MonoBehaviour
                 }
             });
         }
+    }
+
+    private void ConfigureButtonText(TextMeshProUGUI t)
+    {
+        if (t == null) return;
+        t.enableWordWrapping = false;
+        t.enableAutoSizing = true;
+        t.fontSizeMin = 22;
+        t.fontSizeMax = 44;
+        t.alignment = TextAlignmentOptions.Center;
+        RectTransform tr = t.rectTransform;
+        tr.anchorMin = Vector2.zero;
+        tr.anchorMax = Vector2.one;
+        tr.offsetMin = Vector2.zero;
+        tr.offsetMax = Vector2.zero;
     }
 }

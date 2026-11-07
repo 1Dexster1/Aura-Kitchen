@@ -67,32 +67,11 @@ namespace AuraKitchen
 
         private void SetupAuraRing()
         {
-            if (auraRingObject == null)
+            // Do not create procedural primitives to avoid missing URP shader / pink artifacts
+            if (auraRingObject != null)
             {
-                // Procedural glowing aura circle at feet
-                auraRingObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                auraRingObject.name = "AuraRing";
-                auraRingObject.transform.SetParent(transform);
-                auraRingObject.transform.localPosition = new Vector3(0, 0.05f, 0);
-                auraRingObject.transform.localScale = new Vector3(1.4f, 0.02f, 1.4f);
-
-                // Remove collider
-                Collider col = auraRingObject.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-            }
-
-            MeshRenderer ringRenderer = auraRingObject.GetComponent<MeshRenderer>();
-            if (ringRenderer != null)
-            {
-                Color c = AuraColors[playerIndex];
-                auraMaterialInstance = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                auraMaterialInstance.color = c;
-                if (auraMaterialInstance.HasProperty("_EmissionColor"))
-                {
-                    auraMaterialInstance.EnableKeyword("_EMISSION");
-                    auraMaterialInstance.SetColor("_EmissionColor", c * 1.5f);
-                }
-                ringRenderer.material = auraMaterialInstance;
+                Destroy(auraRingObject);
+                auraRingObject = null;
             }
         }
 

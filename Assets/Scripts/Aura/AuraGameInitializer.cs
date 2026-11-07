@@ -69,13 +69,7 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraKitchenEnvironment>();
             }
 
-            // 2. Customer System
-            if (Object.FindObjectOfType<CustomerManager>() == null)
-            {
-                auraRoot.AddComponent<CustomerManager>();
-            }
-
-            // 3. Multiplayer & 4-Player Manager
+            // 2. Multiplayer & 4-Player Manager
             if (Object.FindObjectOfType<MultiplayerManager>() == null)
             {
                 var mp = auraRoot.AddComponent<MultiplayerManager>();

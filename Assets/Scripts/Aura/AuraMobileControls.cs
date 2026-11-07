@@ -18,17 +18,22 @@ namespace AuraKitchen
         public event EventHandler OnInteractAltPressed;
         public event EventHandler OnSwitchChefPressed;
 
-        [Header("UI Canvas & Panels")]
-        [SerializeField] private GameObject mobileControlsRoot;
-        [SerializeField] private RectTransform joystickBackground;
-        [SerializeField] private RectTransform joystickHandle;
+        [Header("State")]
+        private Vector3 targetMovePosition = Vector3.zero;
+        private KitchenCounter targetCounter = null;
+        private bool isMovingToTarget = false;
+        private float dashTimer = 0f;
+        private const float DashDuration = 0.45f;
 
-        [Header("Configuration")]
-        [SerializeField] private float joystickRadius = 90f;
+        [Header("UI Canvas")]
+        private GameObject mobileCanvasObj;
+        private GameObject tapMarkerObj;
+        private Image tapMarkerImage;
+        private RectTransform tapMarkerRect;
+        private float tapMarkerAlpha = 0f;
 
-        private int activeJoystickFingerId = -1;
-        private Vector2 joystickCenterPos = Vector2.zero;
-        private static Sprite cachedCircleSprite;
+        private GameObject switchChefBtnObj;
+        private TextMeshProUGUI switchChefBtnText;
 
         private void Awake()
         {
@@ -40,12 +45,10 @@ namespace AuraKitchen
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            // Lock 60 FPS on Android & prevent screen timeout
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
-            // Ensure EventSystem exists for UI touches
             if (FindObjectOfType<EventSystem>() == null)
             {
                 GameObject esObj = new GameObject("Aura_EventSystem");
@@ -54,13 +57,10 @@ namespace AuraKitchen
                 DontDestroyOnLoad(esObj);
             }
 
-            if (mobileControlsRoot == null)
-            {
-                CreateProceduralMobileUI();
-            }
+            CreateMobileCanvas();
 
             SceneManager.sceneLoaded += OnSceneLoaded;
-            UpdateControlsVisibility(SceneManager.GetActiveScene().name);
+            UpdateVisibility(SceneManager.GetActiveScene().name);
         }
 
         private void OnDestroy()
@@ -70,267 +70,349 @@ namespace AuraKitchen
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            UpdateControlsVisibility(scene.name);
+            UpdateVisibility(scene.name);
+            ResetMovement();
         }
 
-        public void EnsureControlsVisible(bool visible)
+        private void UpdateVisibility(string sceneName)
         {
-            if (mobileControlsRoot != null)
+            bool isGame = sceneName == SceneSwitcher.Scene.GameScene.ToString();
+            if (mobileCanvasObj != null)
             {
-                mobileControlsRoot.SetActive(visible);
+                mobileCanvasObj.SetActive(isGame);
             }
         }
 
-        private void UpdateControlsVisibility(string sceneName)
+        private void CreateMobileCanvas()
         {
-            bool isGame = sceneName == SceneSwitcher.Scene.GameScene.ToString();
-            EnsureControlsVisible(isGame);
-        }
+            mobileCanvasObj = new GameObject("Aura_TapToMove_Canvas");
+            DontDestroyOnLoad(mobileCanvasObj);
 
-        private void CreateProceduralMobileUI()
-        {
-            mobileControlsRoot = new GameObject("Aura_MobileControls_Canvas");
-            DontDestroyOnLoad(mobileControlsRoot);
-
-            Canvas canvas = mobileControlsRoot.AddComponent<Canvas>();
+            Canvas canvas = mobileCanvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 9999; // Always on top of everything
+            canvas.sortingOrder = 500;
 
-            CanvasScaler scaler = mobileControlsRoot.AddComponent<CanvasScaler>();
+            CanvasScaler scaler = mobileCanvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            mobileControlsRoot.AddComponent<GraphicRaycaster>();
+            mobileCanvasObj.AddComponent<GraphicRaycaster>();
 
-            Sprite circle = GetCircleSprite();
+            // 1. Subtle Tap Ripple Marker
+            tapMarkerObj = new GameObject("TapMarker");
+            tapMarkerObj.transform.SetParent(mobileCanvasObj.transform, false);
+            tapMarkerRect = tapMarkerObj.AddComponent<RectTransform>();
+            tapMarkerRect.sizeDelta = new Vector2(90, 90);
+            tapMarkerRect.pivot = new Vector2(0.5f, 0.5f);
 
-            // 1. Virtual Joystick (Bottom-Left)
-            GameObject joyBgObj = new GameObject("Joystick_Background");
-            joyBgObj.transform.SetParent(mobileControlsRoot.transform, false);
-            joystickBackground = joyBgObj.AddComponent<RectTransform>();
-            joystickBackground.anchorMin = new Vector2(0, 0);
-            joystickBackground.anchorMax = new Vector2(0, 0);
-            joystickBackground.pivot = new Vector2(0.5f, 0.5f);
-            joystickBackground.anchoredPosition = new Vector2(210, 210);
-            joystickBackground.sizeDelta = new Vector2(210, 210);
+            tapMarkerImage = tapMarkerObj.AddComponent<Image>();
+            tapMarkerImage.sprite = AuraMobileControls.GetCircleSprite();
+            tapMarkerImage.color = new Color(0.2f, 0.85f, 1f, 0f);
+            tapMarkerImage.raycastTarget = false;
 
-            Image joyBgImg = joyBgObj.AddComponent<Image>();
-            joyBgImg.sprite = circle;
-            joyBgImg.color = new Color(0.06f, 0.10f, 0.18f, 0.70f);
-            joyBgImg.raycastTarget = false;
+            // 2. Minimal Chef Switch Button (bottom-center)
+            switchChefBtnObj = new GameObject("Btn_SwitchChef_Bottom");
+            switchChefBtnObj.transform.SetParent(mobileCanvasObj.transform, false);
+            RectTransform sRect = switchChefBtnObj.AddComponent<RectTransform>();
+            sRect.anchorMin = new Vector2(0.5f, 0);
+            sRect.anchorMax = new Vector2(0.5f, 0);
+            sRect.pivot = new Vector2(0.5f, 0);
+            sRect.anchoredPosition = new Vector2(0, 24);
+            sRect.sizeDelta = new Vector2(240, 52);
 
-            Outline joyBgOutline = joyBgObj.AddComponent<Outline>();
-            joyBgOutline.effectColor = new Color(0.0f, 0.85f, 1.0f, 0.75f);
-            joyBgOutline.effectDistance = new Vector2(3, -3);
+            Image sImg = switchChefBtnObj.AddComponent<Image>();
+            sImg.color = new Color(0.18f, 0.18f, 0.18f, 0.88f);
 
-            // Joystick Handle Knob
-            GameObject joyHandleObj = new GameObject("Joystick_Handle");
-            joyHandleObj.transform.SetParent(joyBgObj.transform, false);
-            joystickHandle = joyHandleObj.AddComponent<RectTransform>();
-            joystickHandle.anchorMin = new Vector2(0.5f, 0.5f);
-            joystickHandle.anchorMax = new Vector2(0.5f, 0.5f);
-            joystickHandle.pivot = new Vector2(0.5f, 0.5f);
-            joystickHandle.anchoredPosition = Vector2.zero;
-            joystickHandle.sizeDelta = new Vector2(95, 95);
+            Outline sOutline = switchChefBtnObj.AddComponent<Outline>();
+            sOutline.effectColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
+            sOutline.effectDistance = new Vector2(1, -1);
 
-            Image joyHandleImg = joyHandleObj.AddComponent<Image>();
-            joyHandleImg.sprite = circle;
-            joyHandleImg.color = new Color(0.0f, 0.92f, 1.0f, 0.90f);
-            joyHandleImg.raycastTarget = false;
-
-            // 2. Action Buttons (Bottom-Right)
-            // Primary Interact (Pick/Drop) - Emerald
-            CreateActionButton("Btn_Interact", "PICK\nDROP", new Vector2(-140, 140), new Vector2(125, 125),
-                new Color(0.05f, 0.75f, 0.40f, 0.95f), () =>
+            Button sBtn = switchChefBtnObj.AddComponent<Button>();
+            sBtn.onClick.AddListener(() =>
+            {
+                if (SoloChefController.Instance != null)
                 {
-                    OnInteractPressed?.Invoke(this, EventArgs.Empty);
-                    TriggerActivePlayerInteract();
-                });
+                    SoloChefController.Instance.SwitchChef();
+                    UpdateSwitchChefLabel();
+                }
+            });
 
-            // Secondary Action (Chop/Use) - Amber
-            CreateActionButton("Btn_ActionAlt", "CHOP\nUSE", new Vector2(-285, 140), new Vector2(115, 115),
-                new Color(0.95f, 0.55f, 0.10f, 0.95f), () =>
-                {
-                    OnInteractAltPressed?.Invoke(this, EventArgs.Empty);
-                    TriggerActivePlayerInteractAlt();
-                });
+            GameObject txtObj = new GameObject("Text");
+            txtObj.transform.SetParent(switchChefBtnObj.transform, false);
+            RectTransform tRect = txtObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.sizeDelta = Vector2.zero;
 
-            // Switch Chef - Purple
-            CreateActionButton("Btn_SwitchChef", "SWITCH\nCHEF", new Vector2(-140, 285), new Vector2(100, 100),
-                new Color(0.75f, 0.25f, 0.85f, 0.95f), () =>
-                {
-                    OnSwitchChefPressed?.Invoke(this, EventArgs.Empty);
-                    if (SoloChefController.Instance != null)
-                    {
-                        SoloChefController.Instance.SwitchChef();
-                    }
-                });
-
-            // Dash / Sprint - Electric Blue
-            CreateActionButton("Btn_Dash", "DASH\nRUN", new Vector2(-285, 275), new Vector2(95, 95),
-                new Color(0.15f, 0.60f, 0.95f, 0.95f), () =>
-                {
-                    IsTouchSprinting = !IsTouchSprinting;
-                });
+            switchChefBtnText = txtObj.AddComponent<TextMeshProUGUI>();
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (font != null)
+            {
+                switchChefBtnText.font = font;
+            }
+            switchChefBtnText.text = "SWITCH CHEF (P1/P2)";
+            switchChefBtnText.fontSize = 16;
+            switchChefBtnText.fontStyle = FontStyles.Bold;
+            switchChefBtnText.alignment = TextAlignmentOptions.Center;
+            switchChefBtnText.color = Color.white;
+            switchChefBtnText.raycastTarget = false;
         }
 
-        private GameObject CreateActionButton(string name, string label, Vector2 anchoredPos, Vector2 size, Color color, Action onClick)
+        private void UpdateSwitchChefLabel()
         {
-            GameObject btnObj = new GameObject(name);
-            btnObj.transform.SetParent(mobileControlsRoot.transform, false);
-
-            RectTransform rect = btnObj.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1, 0);
-            rect.anchorMax = new Vector2(1, 0);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = anchoredPos;
-            rect.sizeDelta = size;
-
-            Image img = btnObj.AddComponent<Image>();
-            img.sprite = GetCircleSprite();
-            img.color = color;
-
-            Outline outline = btnObj.AddComponent<Outline>();
-            outline.effectColor = new Color(1f, 1f, 1f, 0.4f);
-            outline.effectDistance = new Vector2(2, -2);
-
-            Button btn = btnObj.AddComponent<Button>();
-            ColorBlock cb = btn.colors;
-            cb.normalColor = color;
-            cb.highlightedColor = Color.white;
-            cb.pressedColor = color * 0.75f;
-            btn.colors = cb;
-            btn.onClick.AddListener(() => onClick?.Invoke());
-
-            // Label Text using official game font
-            GameObject textObj = new GameObject("Label");
-            textObj.transform.SetParent(btnObj.transform, false);
-            RectTransform textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-
-            TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
-            TMP_FontAsset gameFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-            if (gameFont != null)
+            if (switchChefBtnText != null && SoloChefController.Instance != null)
             {
-                tmp.font = gameFont;
-                tmp.fontSharedMaterial = gameFont.material;
+                int current = SoloChefController.Instance.ActiveChefIndex + 1;
+                switchChefBtnText.text = $"ACTIVE: CHEF {current} (TAP TO SWITCH)";
             }
-            tmp.text = label;
-            tmp.fontSize = 20;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = Color.white;
-            tmp.raycastTarget = false;
-
-            return btnObj;
         }
 
         private void Update()
         {
-            HandleDirectTouchInput();
+            if (SceneManager.GetActiveScene().name != SceneSwitcher.Scene.GameScene.ToString())
+            {
+                return;
+            }
+
+            HandleTapInput();
+            ProcessMovement();
+            UpdateDash();
+            UpdateTapMarkerAnimation();
+
+            // Only show switch chef button in SoloSwitch mode
+            if (switchChefBtnObj != null)
+            {
+                bool isSolo = MultiplayerManager.Instance != null &&
+                              MultiplayerManager.Instance.CurrentMode == MultiplayerManager.Mode.SoloSwitch;
+                if (switchChefBtnObj.activeSelf != isSolo)
+                {
+                    switchChefBtnObj.SetActive(isSolo);
+                }
+            }
         }
 
-        private void HandleDirectTouchInput()
+        private void HandleTapInput()
         {
+            bool tapBegan = false;
+            Vector2 tapPos = Vector2.zero;
+
             if (Input.touchCount > 0)
             {
-                bool foundJoyTouch = false;
                 for (int i = 0; i < Input.touchCount; i++)
                 {
                     Touch t = Input.GetTouch(i);
-
-                    // Touch on left half of screen controls movement joystick
-                    if (t.position.x < Screen.width * 0.5f)
+                    if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(t.fingerId))
                     {
-                        if (t.phase == TouchPhase.Began)
-                        {
-                            activeJoystickFingerId = t.fingerId;
-                            joystickCenterPos = t.position;
-                            UpdateJoystickVisual(t.position);
-                            foundJoyTouch = true;
-                        }
-                        else if (t.fingerId == activeJoystickFingerId && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
-                        {
-                            UpdateJoystickVisual(t.position);
-                            foundJoyTouch = true;
-                        }
+                        continue;
                     }
 
-                    if (t.fingerId == activeJoystickFingerId && (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled))
+                    if (t.phase == TouchPhase.Began)
                     {
-                        ResetJoystick();
+                        tapBegan = true;
+                        tapPos = t.position;
+                        break;
                     }
-                }
-
-                if (!foundJoyTouch && activeJoystickFingerId != -1)
-                {
-                    ResetJoystick();
                 }
             }
-            else if (Input.GetMouseButton(0))
+            else if (Input.GetMouseButtonDown(0))
             {
-                Vector2 mousePos = Input.mousePosition;
-                if (mousePos.x < Screen.width * 0.5f)
+                if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
                 {
-                    if (Input.GetMouseButtonDown(0))
-                    {
-                        joystickCenterPos = mousePos;
-                    }
-                    UpdateJoystickVisual(mousePos);
+                    tapBegan = true;
+                    tapPos = Input.mousePosition;
                 }
             }
-            else if (Input.GetMouseButtonUp(0))
+
+            if (!tapBegan) return;
+
+            // Trigger Dash if duck is already moving towards a target!
+            if (isMovingToTarget)
             {
-                ResetJoystick();
+                TriggerDash();
+            }
+
+            ShowTapMarker(tapPos);
+
+            if (Camera.main == null) return;
+            Ray ray = Camera.main.ScreenPointToRay(tapPos);
+
+            if (Physics.Raycast(ray, out RaycastHit hit, 100f))
+            {
+                Player player = Player.Instance;
+                if (player == null) return;
+
+                // 1. Tapped another chef in Solo mode?
+                Player clickedPlayer = hit.transform.GetComponentInParent<Player>();
+                if (clickedPlayer != null && clickedPlayer != player)
+                {
+                    if (SoloChefController.Instance != null)
+                    {
+                        SoloChefController.Instance.SwitchChef();
+                        UpdateSwitchChefLabel();
+                        ResetMovement();
+                        return;
+                    }
+                }
+
+                // 2. Tapped a Kitchen Counter?
+                KitchenCounter counter = hit.transform.GetComponentInParent<KitchenCounter>();
+                if (counter != null)
+                {
+                    HandleCounterTap(player, counter);
+                    return;
+                }
+
+                // 3. Tapped Floor / Destination?
+                Vector3 dest = hit.point;
+                dest.y = player.transform.position.y;
+                targetMovePosition = dest;
+                targetCounter = null;
+                isMovingToTarget = true;
             }
         }
 
-        private void UpdateJoystickVisual(Vector2 currentPos)
+        private void HandleCounterTap(Player player, KitchenCounter counter)
         {
-            Vector2 offset = currentPos - joystickCenterPos;
-            float distance = offset.magnitude;
-            Vector2 dir = distance > 0.001f ? offset.normalized : Vector2.zero;
+            Vector3 counterPos = counter.transform.position;
+            Vector3 playerPos = player.transform.position;
 
-            float clamped = Mathf.Clamp(distance, 0f, joystickRadius);
-            TouchMovementVector = dir * (clamped / joystickRadius);
+            // Compute ideal interaction position in front of counter
+            Vector3 interactPos = counterPos + counter.transform.forward * 1.15f;
+            interactPos.y = playerPos.y;
 
-            if (joystickHandle != null)
+            float distToCounter = Vector3.Distance(new Vector3(playerPos.x, 0, playerPos.z),
+                                                   new Vector3(counterPos.x, 0, counterPos.z));
+
+            // If already standing right next to this counter, interact immediately!
+            if (distToCounter <= 1.65f)
             {
-                joystickHandle.anchoredPosition = dir * clamped;
+                Vector3 lookDir = (counterPos - playerPos);
+                lookDir.y = 0;
+                if (lookDir != Vector3.zero)
+                {
+                    player.transform.forward = lookDir.normalized;
+                }
+
+                // If it's a cutting counter with something to chop, trigger Alt, else Normal
+                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HasKitchenObject())
+                {
+                    player.InteractAltAction(this, EventArgs.Empty);
+                }
+                else
+                {
+                    player.InteractionAction(this, EventArgs.Empty);
+                }
+
+                ResetMovement();
+            }
+            else
+            {
+                // Walk to the counter then interact
+                targetMovePosition = interactPos;
+                targetCounter = counter;
+                isMovingToTarget = true;
             }
         }
 
-        private void ResetJoystick()
+        private void ProcessMovement()
         {
-            activeJoystickFingerId = -1;
+            if (!isMovingToTarget) return;
+
+            Player player = Player.Instance;
+            if (player == null)
+            {
+                ResetMovement();
+                return;
+            }
+
+            Vector3 currentPos = player.transform.position;
+            Vector3 offset = targetMovePosition - currentPos;
+            offset.y = 0f;
+
+            float dist = offset.magnitude;
+            if (dist > 0.28f)
+            {
+                Vector3 dir = offset.normalized;
+                TouchMovementVector = new Vector2(dir.x, dir.z);
+            }
+            else
+            {
+                // Reached destination!
+                ResetMovement();
+
+                if (targetCounter != null)
+                {
+                    Vector3 lookDir = (targetCounter.transform.position - player.transform.position);
+                    lookDir.y = 0;
+                    if (lookDir != Vector3.zero)
+                    {
+                        player.transform.forward = lookDir.normalized;
+                    }
+
+                    player.InteractionAction(this, EventArgs.Empty);
+                    targetCounter = null;
+                }
+            }
+        }
+
+        public void TriggerDash()
+        {
+            dashTimer = DashDuration;
+            IsTouchSprinting = true;
+        }
+
+        private void UpdateDash()
+        {
+            if (dashTimer > 0f)
+            {
+                dashTimer -= Time.deltaTime;
+                if (dashTimer <= 0f)
+                {
+                    IsTouchSprinting = false;
+                }
+            }
+        }
+
+        private void ResetMovement()
+        {
+            isMovingToTarget = false;
             TouchMovementVector = Vector2.zero;
-            if (joystickHandle != null)
-            {
-                joystickHandle.anchoredPosition = Vector2.zero;
-            }
         }
 
-        private void TriggerActivePlayerInteract()
+        private void ShowTapMarker(Vector2 screenPos)
         {
-            Player p = Player.Instance;
-            if (p != null)
+            if (tapMarkerRect != null && tapMarkerImage != null)
             {
-                p.InteractionAction(this, EventArgs.Empty);
+                tapMarkerRect.position = screenPos;
+                tapMarkerRect.sizeDelta = new Vector2(40, 40);
+                tapMarkerAlpha = 0.85f;
+                tapMarkerImage.color = new Color(0.2f, 0.9f, 1f, tapMarkerAlpha);
+                tapMarkerObj.SetActive(true);
             }
         }
 
-        private void TriggerActivePlayerInteractAlt()
+        private void UpdateTapMarkerAnimation()
         {
-            Player p = Player.Instance;
-            if (p != null)
+            if (tapMarkerAlpha > 0f && tapMarkerRect != null && tapMarkerImage != null)
             {
-                p.InteractAltAction(this, EventArgs.Empty);
+                tapMarkerAlpha -= Time.deltaTime * 3.5f;
+                float currentSize = tapMarkerRect.sizeDelta.x + (Time.deltaTime * 180f);
+                tapMarkerRect.sizeDelta = new Vector2(currentSize, currentSize);
+
+                if (tapMarkerAlpha <= 0f)
+                {
+                    tapMarkerAlpha = 0f;
+                    tapMarkerObj.SetActive(false);
+                }
+                else
+                {
+                    tapMarkerImage.color = new Color(0.2f, 0.9f, 1f, tapMarkerAlpha);
+                }
             }
         }
 
+        private static Sprite cachedCircleSprite;
         public static Sprite GetCircleSprite()
         {
             if (cachedCircleSprite != null) return cachedCircleSprite;
@@ -343,7 +425,8 @@ namespace AuraKitchen
                 for (int x = 0; x < size; x++)
                 {
                     float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                    float alpha = Mathf.Clamp01((radius - dist) + 0.5f);
+                    float ringDist = Mathf.Abs(dist - (radius * 0.75f));
+                    float alpha = Mathf.Clamp01(1f - (ringDist / 4f));
                     tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
                 }
             }
