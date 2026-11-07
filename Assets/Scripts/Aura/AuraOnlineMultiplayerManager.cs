@@ -472,7 +472,7 @@ namespace AuraKitchen
 
             // Flag so MainMenu automatically re-opens the active room lobby
             PlayerPrefs.SetInt("Aura_ReturnToLobby", 1);
-            SceneSwitcher.LoadScene(SceneSwitcher.Scene.MainMenuScene);
+            SceneSwitcher.LoadScene(SceneSwitcher.Scene.MainMenu);
         }
 
         private IEnumerator GetRoomState(string code, Action<bool, string> onComplete)

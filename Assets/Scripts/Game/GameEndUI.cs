@@ -22,7 +22,6 @@ public class GameEndUI : MonoBehaviour
     private TextMeshProUGUI modernScoreValText;
     private TextMeshProUGUI modernStreakValText;
     private TextMeshProUGUI modernEfficiencyValText;
-    private TextMeshProUGUI playAgainBtnText;
 
     private void Awake()
     {
@@ -41,9 +40,9 @@ public class GameEndUI : MonoBehaviour
 
     private void PlayAgainAction()
     {
-        if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
+        if (AuraKitchen.AuraOnlineMultiplayerManager.Instance != null && AuraKitchen.AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
         {
-            AuraOnlineMultiplayerManager.Instance.ReturnToLobby();
+            AuraKitchen.AuraOnlineMultiplayerManager.Instance.ReturnToLobby();
         }
         else
         {
@@ -82,11 +81,6 @@ public class GameEndUI : MonoBehaviour
         if (modernModalObj != null)
         {
             modernModalObj.SetActive(true);
-            if (playAgainBtnText != null)
-            {
-                bool isOnline = AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive;
-                playAgainBtnText.text = isOnline ? "RETURN TO ROOM LOBBY" : "PLAY AGAIN";
-            }
             PopulateModernStats();
         }
     }
@@ -195,7 +189,7 @@ public class GameEndUI : MonoBehaviour
         CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), out modernEfficiencyValText);
 
         // Buttons
-        playAgainBtnText = CreateButton(card, "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
+        CreateButton(card, "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
             new Color(0.18f, 0.58f, 0.28f), PlayAgainAction, 24);
 
         CreateButton(card, "MAIN MENU", new Vector2(220, -250), new Vector2(400, 80),
@@ -240,7 +234,7 @@ public class GameEndUI : MonoBehaviour
         return tmp;
     }
 
-    private TextMeshProUGUI CreateButton(GameObject parent, string label, Vector2 pos, Vector2 size, Color bgColor, Action onClick, float fontSize)
+    private void CreateButton(GameObject parent, string label, Vector2 pos, Vector2 size, Color bgColor, Action onClick, float fontSize)
     {
         GameObject btnObj = new GameObject("Btn_" + label);
         btnObj.transform.SetParent(parent.transform, false);
@@ -271,6 +265,5 @@ public class GameEndUI : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;
         tmp.raycastTarget = false;
-        return tmp;
     }
 }

@@ -45,10 +45,6 @@ namespace AuraKitchen
                     {
                         instancedMat.SetColor("_BaseColor", color);
                     }
-                    if (instancedMat.HasProperty("_Color"))
-                    {
-                        instancedMat.SetColor("_Color", color);
-                    }
                     r.material = instancedMat;
                 }
             }
