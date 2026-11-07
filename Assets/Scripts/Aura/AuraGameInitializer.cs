@@ -25,6 +25,20 @@ namespace AuraKitchen
             {
                 InitializeGameScene();
             }
+            else if (scene.name == SceneSwitcher.Scene.MainMenu.ToString())
+            {
+                InitializeMainMenuScene();
+            }
+        }
+
+        private static void InitializeMainMenuScene()
+        {
+            GameObject lobbyShowcase = GameObject.Find("Aura_3D_Lobby_Showcase_Host");
+            if (lobbyShowcase == null)
+            {
+                lobbyShowcase = new GameObject("Aura_3D_Lobby_Showcase_Host");
+                lobbyShowcase.AddComponent<Aura3DLobbyShowcase>();
+            }
         }
 
         private static void InitializeGlobalSystems()

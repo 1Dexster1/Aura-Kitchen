@@ -1,0 +1,417 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using TMPro;
+
+namespace AuraKitchen
+{
+    public class Aura3DLobbyShowcase : MonoBehaviour
+    {
+        public static Aura3DLobbyShowcase Instance { get; private set; }
+
+        [Header("Squad Stage Config")]
+        [SerializeField] private Vector3 stageCenter = new Vector3(0.5f, 0f, 0f);
+
+        private GameObject stageRootObj;
+        private SquadSlotData[] squadSlots = new SquadSlotData[4];
+
+        private float targetRotationY = 0f;
+        private float currentRotationY = 0f;
+        private bool isDragging = false;
+        private Vector2 lastTouchPos;
+        private float idleReturnTimer = 0f;
+
+        public class SquadSlotData
+        {
+            public int slotIndex;
+            public GameObject pedestalObj;
+            public GameObject neonRingObj;
+            public GameObject chefModelObj;
+            public Light spotLight;
+            public TextMeshPro overhead3DText;
+            public LobbyChefIdleAnimator idleAnimator;
+            public bool isOccupied;
+            public string chefName;
+        }
+
+        public static readonly Color[] SlotNeonColors = new Color[]
+        {
+            new Color(1.0f, 0.22f, 0.22f, 1f), // P1: Ruby Red
+            new Color(0.20f, 0.55f, 1.0f, 1f),  // P2: Sapphire Blue
+            new Color(0.18f, 0.85f, 0.35f, 1f), // P3: Emerald Green
+            new Color(1.0f, 0.78f, 0.15f, 1f)   // P4: Amber Gold
+        };
+
+        // Battle-Royale V-Formation offsets (relative to stageCenter)
+        private static readonly Vector3[] SlotPositions = new Vector3[]
+        {
+            new Vector3(-1.15f, 0f, -0.3f), // Slot 0: Host / Center-Left Front
+            new Vector3(1.15f, 0f, -0.3f),  // Slot 1: P2 / Center-Right Front
+            new Vector3(-2.9f, 0f, 0.7f),   // Slot 2: P3 / Left Flank
+            new Vector3(2.9f, 0f, 0.7f)     // Slot 3: P4 / Right Flank
+        };
+
+        private static readonly float[] SlotYRotations = new float[]
+        {
+            12f,   // Slot 0 angles slightly toward center
+            -12f,  // Slot 1 angles slightly toward center
+            25f,   // Slot 2 angles inward
+            -25f   // Slot 3 angles inward
+        };
+
+        private void Awake()
+        {
+            if (Instance != null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
+            BuildSquadStage();
+            HideOldMainMenuDucks();
+        }
+
+        private void Start()
+        {
+            // Initialize with Host (Slot 0) active
+            string myName = PlayerPrefs.GetString("Aura_PlayerName", "Chef Ruby");
+            UpdateSlot(0, true, myName, true);
+            UpdateSlot(1, false, "[OPEN]", false);
+            UpdateSlot(2, false, "[OPEN]", false);
+            UpdateSlot(3, false, "[OPEN]", false);
+        }
+
+        private void HideOldMainMenuDucks()
+        {
+            // Find existing PlayerVisual instances in the scene and disable them so only the squad stage is visible
+            GameObject[] allObjects = FindObjectsOfType<GameObject>();
+            foreach (var go in allObjects)
+            {
+                if (go.name.StartsWith("PlayerVisual") && (stageRootObj == null || !go.transform.IsChildOf(stageRootObj.transform)))
+                {
+                    go.SetActive(false);
+                }
+            }
+        }
+
+        private void BuildSquadStage()
+        {
+            stageRootObj = new GameObject("Aura_3D_Squad_Stage");
+            stageRootObj.transform.position = stageCenter;
+
+            for (int i = 0; i < 4; i++)
+            {
+                squadSlots[i] = CreatePodiumStation(i);
+            }
+        }
+
+        private SquadSlotData CreatePodiumStation(int slot)
+        {
+            SquadSlotData data = new SquadSlotData();
+            data.slotIndex = slot;
+
+            GameObject stationRoot = new GameObject($"Station_Slot_{slot}");
+            stationRoot.transform.SetParent(stageRootObj.transform, false);
+            stationRoot.transform.localPosition = SlotPositions[slot];
+            stationRoot.transform.localRotation = Quaternion.Euler(0, SlotYRotations[slot], 0);
+
+            // 1. Dark Cylindrical Platform / Pedestal
+            GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pedestal.name = "Pedestal_Base";
+            pedestal.transform.SetParent(stationRoot.transform, false);
+            pedestal.transform.localPosition = new Vector3(0, 0.04f, 0);
+            pedestal.transform.localScale = new Vector3(1.65f, 0.04f, 1.65f);
+            Destroy(pedestal.GetComponent<Collider>());
+
+            Renderer pRend = pedestal.GetComponent<Renderer>();
+            Material pMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            pMat.color = new Color(0.12f, 0.12f, 0.14f);
+            if (pMat.HasProperty("_BaseColor")) pMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.14f));
+            if (pMat.HasProperty("_Metallic")) pMat.SetFloat("_Metallic", 0.6f);
+            if (pMat.HasProperty("_Smoothness")) pMat.SetFloat("_Smoothness", 0.8f);
+            pRend.material = pMat;
+            data.pedestalObj = pedestal;
+
+            // 2. Glowing Neon Emission Ring on top rim
+            GameObject neonRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            neonRing.name = "Neon_Ring";
+            neonRing.transform.SetParent(stationRoot.transform, false);
+            neonRing.transform.localPosition = new Vector3(0, 0.082f, 0);
+            neonRing.transform.localScale = new Vector3(1.72f, 0.008f, 1.72f);
+            Destroy(neonRing.GetComponent<Collider>());
+
+            Renderer nRend = neonRing.GetComponent<Renderer>();
+            Material nMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            Color neonColor = SlotNeonColors[slot];
+            nMat.color = neonColor;
+            if (nMat.HasProperty("_BaseColor")) nMat.SetColor("_BaseColor", neonColor);
+            if (nMat.HasProperty("_EmissionColor"))
+            {
+                nMat.EnableKeyword("_EMISSION");
+                nMat.SetColor("_EmissionColor", neonColor * 2.2f);
+            }
+            nRend.material = nMat;
+            data.neonRingObj = neonRing;
+
+            // 3. Upward Colored Underlight
+            GameObject lightObj = new GameObject("Podium_Underlight");
+            lightObj.transform.SetParent(stationRoot.transform, false);
+            lightObj.transform.localPosition = new Vector3(0, 0.2f, 0);
+            Light pLight = lightObj.AddComponent<Light>();
+            pLight.type = LightType.Point;
+            pLight.color = neonColor;
+            pLight.range = 3.2f;
+            pLight.intensity = 1.8f;
+            pLight.shadows = LightShadows.None;
+            data.spotLight = pLight;
+
+            // 4. Instantiate 3D Chef Model
+            GameObject chef = SpawnChefModel(slot, stationRoot.transform);
+            data.chefModelObj = chef;
+            if (chef != null)
+            {
+                data.idleAnimator = chef.AddComponent<LobbyChefIdleAnimator>();
+                data.idleAnimator.Initialize(slot);
+            }
+
+            // 5. 3D Floating Nameplate Above Head
+            GameObject tagObj = new GameObject("Overhead_3D_Tag");
+            tagObj.transform.SetParent(stationRoot.transform, false);
+            tagObj.transform.localPosition = new Vector3(0, 2.35f, 0);
+
+            TextMeshPro tmp = tagObj.AddComponent<TextMeshPro>();
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontSize = 4.8f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.outlineWidth = 0.25f;
+            tmp.outlineColor = new Color32(0, 0, 0, 255);
+            tmp.rectTransform.sizeDelta = new Vector2(6f, 2.2f);
+            data.overhead3DText = tmp;
+
+            return data;
+        }
+
+        private GameObject SpawnChefModel(int slot, Transform parent)
+        {
+            GameObject prefab = Resources.Load<GameObject>("PlayerVisual");
+            GameObject chefObj = null;
+
+            if (prefab != null)
+            {
+                chefObj = Instantiate(prefab, parent, false);
+            }
+            else
+            {
+                // Fallback: look for any PlayerVisual in scene to clone
+                GameObject sceneDuck = GameObject.Find("PlayerVisual");
+                if (sceneDuck != null)
+                {
+                    chefObj = Instantiate(sceneDuck, parent, false);
+                    chefObj.SetActive(true);
+                }
+            }
+
+            if (chefObj == null) return null;
+
+            chefObj.name = $"ChefModel_P{slot + 1}";
+            chefObj.transform.localPosition = new Vector3(0, 0.08f, 0);
+            chefObj.transform.localRotation = Quaternion.identity;
+
+            MeshRenderer[] renderers = chefObj.GetComponentsInChildren<MeshRenderer>(true);
+            foreach (var r in renderers)
+            {
+                if (r == null) continue;
+                if (r.gameObject.name == "Head" || r.gameObject.name == "Body" ||
+                    (r.sharedMaterial != null && r.sharedMaterial.name.Contains("PlayerBody")))
+                {
+                    Material instMat = new Material(r.sharedMaterial != null ? r.sharedMaterial : (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard")));
+                    instMat.color = SlotNeonColors[slot];
+                    if (instMat.HasProperty("_BaseColor")) instMat.SetColor("_BaseColor", SlotNeonColors[slot]);
+                    if (instMat.HasProperty("_Color")) instMat.SetColor("_Color", SlotNeonColors[slot]);
+                    r.material = instMat;
+                }
+            }
+
+            return chefObj;
+        }
+
+        public void UpdateSlot(int slot, bool occupied, string name, bool isReady)
+        {
+            if (slot < 0 || slot >= squadSlots.Length) return;
+            SquadSlotData data = squadSlots[slot];
+            if (data == null) return;
+
+            data.isOccupied = occupied;
+            data.chefName = name;
+
+            string[] slotRoles = { "[HOST - P1]", "[P2 CHEF]", "[P3 CHEF]", "[P4 CHEF]" };
+            string colorHex = ColorUtility.ToHtmlStringRGB(SlotNeonColors[slot]);
+
+            if (occupied)
+            {
+                if (data.chefModelObj != null) data.chefModelObj.SetActive(true);
+                if (data.spotLight != null) data.spotLight.intensity = 2.2f;
+
+                if (data.overhead3DText != null)
+                {
+                    string readyStr = isReady ? "<color=#44ff66>[READY]</color>" : "<color=#ffaa00>[WAITING]</color>";
+                    data.overhead3DText.text = $"<size=75%><color=#{colorHex}>{slotRoles[slot]}</color></size>\n<b>{name}</b>\n<size=70%>{readyStr}</size>";
+                }
+            }
+            else
+            {
+                // Slot is open: hide chef model, show invite marker
+                if (data.chefModelObj != null) data.chefModelObj.SetActive(false);
+                if (data.spotLight != null) data.spotLight.intensity = 0.8f;
+
+                if (data.overhead3DText != null)
+                {
+                    data.overhead3DText.text = $"<size=75%><color=#777777>{slotRoles[slot]}</color></size>\n<size=90%><color=#ffd700>+ INVITE</color></size>\n<size=65%><color=#555555>[OPEN SLOT]</color></size>";
+                }
+            }
+        }
+
+        public void SetStageVisible(bool visible)
+        {
+            if (stageRootObj != null)
+            {
+                stageRootObj.SetActive(visible);
+            }
+        }
+
+        private void Update()
+        {
+            HandleSwipeRotation();
+
+            // Billboard 3D nameplates to face camera
+            if (Camera.main != null)
+            {
+                Quaternion camRot = Camera.main.transform.rotation;
+                for (int i = 0; i < squadSlots.Length; i++)
+                {
+                    if (squadSlots[i] != null && squadSlots[i].overhead3DText != null)
+                    {
+                        squadSlots[i].overhead3DText.transform.rotation = camRot;
+                    }
+                }
+            }
+        }
+
+        // PUBG / Free Fire style touch swipe to rotate the 3D squad stage
+        private void HandleSwipeRotation()
+        {
+            if (stageRootObj == null) return;
+
+            // Touch Input (Mobile)
+            if (Input.touchCount > 0)
+            {
+                Touch t = Input.GetTouch(0);
+                if (t.position.y > Screen.height * 0.22f && t.position.y < Screen.height * 0.82f)
+                {
+                    if (t.phase == TouchPhase.Began)
+                    {
+                        isDragging = true;
+                        lastTouchPos = t.position;
+                        idleReturnTimer = 0f;
+                    }
+                    else if (t.phase == TouchPhase.Moved && isDragging)
+                    {
+                        float deltaX = t.position.x - lastTouchPos.x;
+                        lastTouchPos = t.position;
+                        targetRotationY -= deltaX * 0.28f;
+                        targetRotationY = Mathf.Clamp(targetRotationY, -55f, 55f);
+                        idleReturnTimer = 0f;
+                    }
+                    else if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
+                    {
+                        isDragging = false;
+                    }
+                }
+            }
+            // Mouse Input (Editor / PC)
+            else if (Input.GetMouseButtonDown(0))
+            {
+                if (Input.mousePosition.y > Screen.height * 0.22f && Input.mousePosition.y < Screen.height * 0.82f)
+                {
+                    isDragging = true;
+                    lastTouchPos = Input.mousePosition;
+                    idleReturnTimer = 0f;
+                }
+            }
+            else if (Input.GetMouseButton(0) && isDragging)
+            {
+                float deltaX = (float)Input.mousePosition.x - lastTouchPos.x;
+                lastTouchPos = Input.mousePosition;
+                targetRotationY -= deltaX * 0.35f;
+                targetRotationY = Mathf.Clamp(targetRotationY, -55f, 55f);
+                idleReturnTimer = 0f;
+            }
+            else if (Input.GetMouseButtonUp(0))
+            {
+                isDragging = false;
+            }
+
+            // Smooth return to front after 2.5s of no touch
+            if (!isDragging)
+            {
+                idleReturnTimer += Time.deltaTime;
+                if (idleReturnTimer > 2.5f)
+                {
+                    targetRotationY = Mathf.Lerp(targetRotationY, 0f, Time.deltaTime * 2.5f);
+                }
+            }
+
+            // Interpolate rotation
+            currentRotationY = Mathf.Lerp(currentRotationY, targetRotationY, Time.deltaTime * 12f);
+            stageRootObj.transform.rotation = Quaternion.Euler(0, currentRotationY, 0);
+        }
+    }
+
+    // Procedural Idle Animator giving organic life to the 3D chefs on the podiums
+    public class LobbyChefIdleAnimator : MonoBehaviour
+    {
+        private Vector3 initialScale;
+        private Vector3 initialPos;
+        private float seed;
+        private float breatheTimer;
+        private float lookTimer;
+        private float targetHeadAngle = 0f;
+        private float currentHeadAngle = 0f;
+
+        public void Initialize(int slot)
+        {
+            initialScale = transform.localScale;
+            initialPos = transform.localPosition;
+            seed = slot * 1.37f;
+            breatheTimer = seed;
+            lookTimer = UnityEngine.Random.Range(1f, 3.5f);
+        }
+
+        private void Update()
+        {
+            breatheTimer += Time.deltaTime * 2.8f;
+
+            // 1. Organic Breathing (Squash & Stretch)
+            float breathe = Mathf.Sin(breatheTimer) * 0.035f;
+            transform.localScale = new Vector3(initialScale.x * (1f - breathe * 0.5f),
+                                               initialScale.y * (1f + breathe),
+                                               initialScale.z * (1f - breathe * 0.5f));
+
+            // 2. Gentle Floating/Bobbing
+            float bob = Mathf.Sin(breatheTimer * 1.2f) * 0.025f;
+            transform.localPosition = new Vector3(initialPos.x, initialPos.y + bob, initialPos.z);
+
+            // 3. Natural Head Look-Around
+            lookTimer -= Time.deltaTime;
+            if (lookTimer <= 0f)
+            {
+                targetHeadAngle = UnityEngine.Random.Range(-18f, 18f);
+                lookTimer = UnityEngine.Random.Range(2.5f, 5f);
+            }
+            currentHeadAngle = Mathf.Lerp(currentHeadAngle, targetHeadAngle, Time.deltaTime * 4f);
+            transform.localRotation = Quaternion.Euler(0, currentHeadAngle, 0);
+        }
+    }
+}
