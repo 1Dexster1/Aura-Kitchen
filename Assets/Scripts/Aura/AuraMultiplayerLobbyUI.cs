@@ -15,7 +15,7 @@ namespace AuraKitchen
         public static AuraMultiplayerLobbyUI Instance { get; private set; }
 
         [Header("Backend")]
-        [SerializeField] private string serverBaseUrl = "http://panel.sharebotdex.xyz:30015";
+        [SerializeField] private string serverBaseUrl = "https://aura.dexster.site";
 
         private GameObject lobbyRootCanvas;
         private GameObject mainModalCard;
@@ -192,7 +192,7 @@ namespace AuraKitchen
             CreateTMPText(mainModalCard, "AURA KITCHEN - MULTIPLAYER", 32, FontStyles.Bold,
                 new Vector2(0, 345), new Vector2(900, 48), Color.white);
 
-            CreateTMPText(mainModalCard, "Server: panel.sharebotdex.xyz:30015", 16, FontStyles.Normal,
+            CreateTMPText(mainModalCard, "Server: aura.dexster.site", 16, FontStyles.Normal,
                 new Vector2(0, 305), new Vector2(800, 28), new Color(0.75f, 0.75f, 0.75f, 1f));
 
             // Close Button (X)

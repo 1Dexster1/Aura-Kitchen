@@ -28,7 +28,7 @@ namespace AuraKitchen
         }
 
         [Header("Backend Connection")]
-        [SerializeField] private string serverUrl = "ws://panel.sharebotdex.xyz:30015";
+        [SerializeField] private string serverUrl = "wss://aura.dexster.site";
         [SerializeField] private bool autoConnect = false;
 
         private ClientWebSocket webSocket;
