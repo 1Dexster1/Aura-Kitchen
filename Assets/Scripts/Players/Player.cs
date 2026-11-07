@@ -69,7 +69,8 @@ public class Player : MonoBehaviour, IKitchenObjectHolder
 
     private void HandleMovement(Vector3 moveDirection)
     {
-        float moveDistance = moveSpeed * Time.deltaTime;
+        float speedMult = AuraKitchen.AuraGameMechanics.SpeedMultiplier;
+        float moveDistance = moveSpeed * Time.deltaTime * speedMult;
 
         isSprinting = gameInput.IsSpeedingUp();
         if (isSprinting)

@@ -89,6 +89,12 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraUIManager>();
             }
 
+            // 6. Aura Game Mechanics (Combos, Bonus Time, Aura Rush)
+            if (Object.FindObjectOfType<AuraGameMechanics>() == null)
+            {
+                auraRoot.AddComponent<AuraGameMechanics>();
+            }
+
             // Double check Mobile Controls are active and ready in GameScene
             if (AuraMobileControls.Instance != null)
             {

@@ -42,6 +42,14 @@ public class GameManager : MonoBehaviour
     public bool GameRunningCountdownEnded => gameRunningCountdown <= 0;
     public int GameRunningCountdownFloored => (int)MathF.Floor(gameRunningCountdown);
 
+    public void AddBonusTime(float seconds)
+    {
+        if (IsPlaying)
+        {
+            gameRunningCountdown += seconds;
+        }
+    }
+
     private int plateServed;
     public int PlateServed => plateServed;
 

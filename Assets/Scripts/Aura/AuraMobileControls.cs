@@ -404,13 +404,27 @@ namespace AuraKitchen
                     player.transform.forward = lookDir.normalized;
                 }
 
-                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HoldingObject)
+                if (counter is CuttingCounter cuttingCounter)
                 {
-                    player.InteractAltAction(this, EventArgs.Empty);
+                    // 1. If player is holding an item (plate, uncut ingredient) -> place or add to plate!
+                    if (player.HoldingObject)
+                    {
+                        counter.Interact(player);
+                    }
+                    // 2. If player is hands-free and there's an uncut item -> chop!
+                    else if (cuttingCounter.CanCutItem())
+                    {
+                        counter.InteractAlt(player);
+                    }
+                    // 3. If item is already cut (slices) or counter empty -> pick it up!
+                    else
+                    {
+                        counter.Interact(player);
+                    }
                 }
                 else
                 {
-                    player.InteractionAction(this, EventArgs.Empty);
+                    counter.Interact(player);
                 }
             }
         }

@@ -97,7 +97,7 @@ namespace AuraKitchen
                 {
                     if (hit.TryGetComponent<CuttingCounter>(out var cuttingCounter))
                     {
-                        if (cuttingCounter.HoldingObject)
+                        if (cuttingCounter.CanCutItem())
                         {
                             cuttingCounter.InteractAlt(idleChef);
                             break;

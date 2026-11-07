@@ -13,14 +13,25 @@ public class DeliveryManager : MonoBehaviour
     public event EventHandler OnFailedOrderDeliver;
 
     [SerializeField] private MenuSO menu;
-    [SerializeField] private float orderSpawnIntervalMin = 5f;
-    [SerializeField] private float orderSpawnIntervalMax = 10f;
-    [SerializeField] private int maxOrderCount = 5;
+    [SerializeField] private float orderSpawnIntervalMin = 10f;
+    [SerializeField] private float orderSpawnIntervalMax = 18f;
+    [SerializeField] private int maxOrderCount = 3;
 
     private List<MenuRecipeSO> orders;
     private readonly object ordersMutex = new();
 
-    private bool CanSpawnOrder => orders.Count <= maxOrderCount && GameManager.Instance.IsPlaying;
+    private int DynamicMaxOrders
+    {
+        get
+        {
+            int served = GameManager.Instance != null ? GameManager.Instance.PlateServed : 0;
+            if (served < 2) return 2;
+            if (served < 5) return 3;
+            return 4;
+        }
+    }
+
+    private bool CanSpawnOrder => orders.Count < DynamicMaxOrders && GameManager.Instance.IsPlaying;
     private bool HasOrder => orders.Count >= 1;
 
     private void Awake()
@@ -49,6 +60,8 @@ public class DeliveryManager : MonoBehaviour
 
     private IEnumerator SpawnOrder()
     {
+        yield return new WaitForSeconds(2f);
+
         while (true)
         {
             if (CanSpawnOrder)
@@ -61,6 +74,12 @@ public class DeliveryManager : MonoBehaviour
                     yield return new WaitForSeconds(nextOrderInterval);
                 }
 
+                if (!CanSpawnOrder)
+                {
+                    yield return null;
+                    continue;
+                }
+
                 lock (ordersMutex)
                 {
                     // pick an recipe to order
@@ -70,6 +89,8 @@ public class DeliveryManager : MonoBehaviour
                     Debug.LogFormat("<color=green>Order \"{0}\" was placed</color>", selectedRecipe.recipeName);
                     OnOrderPlaced?.Invoke(this, selectedRecipe);
                 }
+
+                yield return new WaitForSeconds(3f);
             }
             else
             {

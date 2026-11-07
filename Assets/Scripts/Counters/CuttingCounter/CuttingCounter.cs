@@ -84,6 +84,16 @@ public class CuttingCounter : ClearCounter, IProgressTracked
         return kitchenObject.GetKitchenObjectSO().objectName != "Plate";
     }
 
+    public bool CanCutItem()
+    {
+        if (Cutting) return true;
+        if (HoldingObject && currentKitchenObject != null)
+        {
+            return GetCuttingRecipe(currentKitchenObject.GetKitchenObjectSO()) != null;
+        }
+        return false;
+    }
+
     #region Recipe Actions
 
     private CuttingRecipeSO GetCuttingRecipe(KitchenObjectSO from)
@@ -125,7 +135,8 @@ public class CuttingCounter : ClearCounter, IProgressTracked
     {
         if (Cutting)
         {
-            SetProgress(cuttingProgress + 1);
+            int step = AuraKitchen.AuraGameMechanics.IsAuraRushActive ? 2 : 1;
+            SetProgress(cuttingProgress + step);
 
             // Checks for done cutting
             if (DoneCutting)
