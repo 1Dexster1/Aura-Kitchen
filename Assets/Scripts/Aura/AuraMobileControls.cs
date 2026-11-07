@@ -295,7 +295,7 @@ namespace AuraKitchen
                 }
 
                 // If it's a cutting counter with something to chop, trigger Alt, else Normal
-                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HasKitchenObject())
+                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HoldingObject)
                 {
                     player.InteractAltAction(this, EventArgs.Empty);
                 }
