@@ -142,7 +142,7 @@ namespace AuraKitchen
             topBtnRect.anchorMax = new Vector2(1, 1);
             topBtnRect.pivot = new Vector2(1, 1);
             topBtnRect.anchoredPosition = new Vector2(-20, -18);
-            topBtnRect.sizeDelta = new Vector2(180, 42);
+            topBtnRect.sizeDelta = new Vector2(200, 48);
 
             Image topBtnImg = topCornerLobbyBtn.AddComponent<Image>();
             topBtnImg.color = new Color(0.20f, 0.20f, 0.20f, 0.90f);
@@ -153,7 +153,7 @@ namespace AuraKitchen
             Button topBtn = topCornerLobbyBtn.AddComponent<Button>();
             topBtn.onClick.AddListener(ShowLobby);
 
-            TextMeshProUGUI tbTmp = CreateTMPText(topCornerLobbyBtn, "ROOM LOBBY", 14, FontStyles.Bold,
+            TextMeshProUGUI tbTmp = CreateTMPText(topCornerLobbyBtn, "ROOM LOBBY", 16, FontStyles.Bold,
                 Vector2.zero, Vector2.zero, Color.white);
             tbTmp.rectTransform.anchorMin = Vector2.zero;
             tbTmp.rectTransform.anchorMax = Vector2.one;
@@ -169,9 +169,9 @@ namespace AuraKitchen
             bdRect.sizeDelta = Vector2.zero;
 
             Image bdImg = backdropObj.AddComponent<Image>();
-            bdImg.color = new Color(0.0f, 0.0f, 0.0f, 0.78f);
+            bdImg.color = new Color(0.0f, 0.0f, 0.0f, 0.82f);
 
-            // 3. Modal Card (Charcoal Kitchen Chaos Theme)
+            // 3. Modal Card (Large, Spacious, Charcoal Kitchen Chaos Theme)
             mainModalCard = new GameObject("Modal_Card");
             mainModalCard.transform.SetParent(backdropObj.transform, false);
             RectTransform cardRect = mainModalCard.AddComponent<RectTransform>();
@@ -179,35 +179,35 @@ namespace AuraKitchen
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.pivot = new Vector2(0.5f, 0.5f);
             cardRect.anchoredPosition = Vector2.zero;
-            cardRect.sizeDelta = new Vector2(780, 560);
+            cardRect.sizeDelta = new Vector2(1180, 800); // Substantially enlarged
 
             Image cardImg = mainModalCard.AddComponent<Image>();
             cardImg.color = new Color(0.20f, 0.20f, 0.20f, 0.98f);
 
             Outline cardOutline = mainModalCard.AddComponent<Outline>();
             cardOutline.effectColor = new Color(0.38f, 0.38f, 0.38f, 1f);
-            cardOutline.effectDistance = new Vector2(2, -2);
+            cardOutline.effectDistance = new Vector2(3, -3);
 
             // Card Header
-            CreateTMPText(mainModalCard, "AURA KITCHEN - MULTIPLAYER", 22, FontStyles.Bold,
-                new Vector2(0, 240), new Vector2(680, 36), Color.white);
+            CreateTMPText(mainModalCard, "AURA KITCHEN - MULTIPLAYER", 32, FontStyles.Bold,
+                new Vector2(0, 345), new Vector2(900, 48), Color.white);
 
-            CreateTMPText(mainModalCard, "Server: panel.sharebotdex.xyz:30015", 12, FontStyles.Normal,
-                new Vector2(0, 208), new Vector2(600, 22), new Color(0.70f, 0.70f, 0.70f, 1f));
+            CreateTMPText(mainModalCard, "Server: panel.sharebotdex.xyz:30015", 16, FontStyles.Normal,
+                new Vector2(0, 305), new Vector2(800, 28), new Color(0.75f, 0.75f, 0.75f, 1f));
 
             // Close Button (X)
-            CreateStyledButton(mainModalCard, "Btn_Close", "X", new Vector2(350, 240), new Vector2(40, 40),
-                new Color(0.30f, 0.30f, 0.30f, 1f), Color.white, HideLobby);
+            CreateStyledButton(mainModalCard, "Btn_Close", "X", new Vector2(530, 345), new Vector2(60, 60),
+                new Color(0.30f, 0.30f, 0.30f, 1f), Color.white, HideLobby, 26);
 
-            // Navigation Tabs (Charcoal buttons)
-            tabHostBtn = CreateStyledButton(mainModalCard, "Tab_Host", "HOST ROOM", new Vector2(-230, 160), new Vector2(210, 46),
-                new Color(0.38f, 0.38f, 0.38f), Color.white, () => SwitchTab("host")).GetComponent<Button>();
+            // Navigation Tabs (Large charcoal buttons)
+            tabHostBtn = CreateStyledButton(mainModalCard, "Tab_Host", "HOST ROOM", new Vector2(-350, 235), new Vector2(320, 64),
+                new Color(0.38f, 0.38f, 0.38f), Color.white, () => SwitchTab("host"), 20).GetComponent<Button>();
 
-            tabJoinBtn = CreateStyledButton(mainModalCard, "Tab_Join", "JOIN WITH CODE", new Vector2(0, 160), new Vector2(210, 46),
-                new Color(0.26f, 0.26f, 0.26f), new Color(0.80f, 0.80f, 0.80f), () => SwitchTab("join")).GetComponent<Button>();
+            tabJoinBtn = CreateStyledButton(mainModalCard, "Tab_Join", "JOIN WITH CODE", new Vector2(0, 235), new Vector2(320, 64),
+                new Color(0.26f, 0.26f, 0.26f), new Color(0.85f, 0.85f, 0.85f), () => SwitchTab("join"), 20).GetComponent<Button>();
 
-            tabSoloBtn = CreateStyledButton(mainModalCard, "Tab_Solo", "SOLO OFFLINE", new Vector2(230, 160), new Vector2(210, 46),
-                new Color(0.26f, 0.26f, 0.26f), new Color(0.80f, 0.80f, 0.80f), () => SwitchTab("solo")).GetComponent<Button>();
+            tabSoloBtn = CreateStyledButton(mainModalCard, "Tab_Solo", "SOLO OFFLINE", new Vector2(350, 235), new Vector2(320, 64),
+                new Color(0.26f, 0.26f, 0.26f), new Color(0.85f, 0.85f, 0.85f), () => SwitchTab("solo"), 20).GetComponent<Button>();
 
             // --- TAB 1: HOST VIEW ---
             hostViewObj = new GameObject("View_Host");
@@ -215,35 +215,35 @@ namespace AuraKitchen
             RectTransform hvr = hostViewObj.AddComponent<RectTransform>();
             hvr.anchoredPosition = Vector2.zero;
 
-            CreateTMPText(hostViewObj, "ROOM CODE:", 13, FontStyles.Bold,
-                new Vector2(0, 95), new Vector2(500, 24), new Color(0.85f, 0.85f, 0.85f));
+            CreateTMPText(hostViewObj, "ROOM CODE:", 19, FontStyles.Bold,
+                new Vector2(0, 145), new Vector2(700, 32), new Color(0.90f, 0.90f, 0.90f));
 
             // Code Display & Copy Button
-            GameObject codeCard = CreatePanel(hostViewObj, "Code_Card", new Vector2(-80, 45), new Vector2(220, 56), new Color(0.13f, 0.13f, 0.13f));
-            hostRoomCodeText = CreateTMPText(codeCard, "AUR4", 28, FontStyles.Bold, Vector2.zero, new Vector2(220, 56), new Color(1.0f, 0.85f, 0.3f));
+            GameObject codeCard = CreatePanel(hostViewObj, "Code_Card", new Vector2(-110, 75), new Vector2(300, 84), new Color(0.13f, 0.13f, 0.13f));
+            hostRoomCodeText = CreateTMPText(codeCard, "AUR4", 44, FontStyles.Bold, Vector2.zero, new Vector2(300, 84), new Color(1.0f, 0.85f, 0.3f));
 
-            CreateStyledButton(hostViewObj, "Btn_Copy", "COPY CODE", new Vector2(90, 45), new Vector2(130, 50),
-                new Color(0.32f, 0.32f, 0.32f), Color.white, CopyRoomCode);
+            CreateStyledButton(hostViewObj, "Btn_Copy", "COPY CODE", new Vector2(130, 75), new Vector2(180, 84),
+                new Color(0.32f, 0.32f, 0.32f), Color.white, CopyRoomCode, 20);
 
             // Chef Slots List
-            CreateTMPText(hostViewObj, "CONNECTED CHEFS (1/4):", 12, FontStyles.Bold,
-                new Vector2(0, -5), new Vector2(600, 22), new Color(0.80f, 0.80f, 0.80f));
+            CreateTMPText(hostViewObj, "CONNECTED CHEFS (1/4):", 19, FontStyles.Bold,
+                new Vector2(0, 5), new Vector2(900, 30), new Color(0.85f, 0.85f, 0.85f));
 
             string[] defaultRoles = { "Chef Ruby (P1 - Host)", "Chef Sapphire (P2)", "Chef Emerald (P3)", "Chef Amber (P4)" };
             for (int i = 0; i < 4; i++)
             {
-                float x = -240 + (i * 160);
-                GameObject slotCard = CreatePanel(hostViewObj, $"Slot_{i}", new Vector2(x, -45), new Vector2(150, 40),
-                    i == 0 ? new Color(0.32f, 0.22f, 0.22f) : new Color(0.14f, 0.14f, 0.14f));
-                hostSlotTexts[i] = CreateTMPText(slotCard, i == 0 ? defaultRoles[0] : "[OPEN]", 11, FontStyles.Bold,
-                    Vector2.zero, new Vector2(146, 38), i == 0 ? new Color(1f, 0.85f, 0.85f) : new Color(0.65f, 0.65f, 0.65f));
+                float x = -405 + (i * 270);
+                GameObject slotCard = CreatePanel(hostViewObj, $"Slot_{i}", new Vector2(x, -50), new Vector2(250, 58),
+                    i == 0 ? new Color(0.34f, 0.22f, 0.22f) : new Color(0.14f, 0.14f, 0.14f));
+                hostSlotTexts[i] = CreateTMPText(slotCard, i == 0 ? defaultRoles[0] : "[OPEN]", 15, FontStyles.Bold,
+                    Vector2.zero, new Vector2(246, 56), i == 0 ? new Color(1f, 0.85f, 0.85f) : new Color(0.65f, 0.65f, 0.65f));
             }
 
-            hostStartGameBtn = CreateStyledButton(hostViewObj, "Btn_StartHost", "START GAME", new Vector2(0, -125), new Vector2(340, 56),
-                new Color(0.18f, 0.58f, 0.28f), Color.white, OnHostStartClicked).GetComponent<Button>();
+            hostStartGameBtn = CreateStyledButton(hostViewObj, "Btn_StartHost", "START GAME", new Vector2(0, -155), new Vector2(460, 80),
+                new Color(0.18f, 0.58f, 0.28f), Color.white, OnHostStartClicked, 24).GetComponent<Button>();
 
-            hostStatusText = CreateTMPText(hostViewObj, "Waiting for players to join...", 12, FontStyles.Normal,
-                new Vector2(0, -180), new Vector2(650, 24), new Color(0.85f, 0.85f, 0.85f));
+            hostStatusText = CreateTMPText(hostViewObj, "Waiting for players to join...", 17, FontStyles.Normal,
+                new Vector2(0, -235), new Vector2(950, 36), new Color(0.85f, 0.85f, 0.85f));
 
             // --- TAB 2: JOIN VIEW ---
             joinViewObj = new GameObject("View_Join");
@@ -251,22 +251,22 @@ namespace AuraKitchen
             RectTransform jvr = joinViewObj.AddComponent<RectTransform>();
             jvr.anchoredPosition = Vector2.zero;
 
-            CreateTMPText(joinViewObj, "ENTER 4-LETTER ROOM CODE:", 14, FontStyles.Bold,
-                new Vector2(0, 80), new Vector2(500, 26), Color.white);
+            CreateTMPText(joinViewObj, "ENTER 4-LETTER ROOM CODE:", 22, FontStyles.Bold,
+                new Vector2(0, 130), new Vector2(700, 36), Color.white);
 
-            GameObject ipBox = CreatePanel(joinViewObj, "Input_Container", new Vector2(0, 20), new Vector2(260, 56), new Color(0.13f, 0.13f, 0.13f));
+            GameObject ipBox = CreatePanel(joinViewObj, "Input_Container", new Vector2(0, 45), new Vector2(380, 84), new Color(0.13f, 0.13f, 0.13f));
             joinCodeInput = ipBox.AddComponent<TMP_InputField>();
             joinCodeInput.characterLimit = 4;
             joinCodeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
 
-            TextMeshProUGUI ipTmp = CreateTMPText(ipBox, "", 26, FontStyles.Bold, Vector2.zero, new Vector2(250, 50), Color.white);
+            TextMeshProUGUI ipTmp = CreateTMPText(ipBox, "", 38, FontStyles.Bold, Vector2.zero, new Vector2(370, 78), Color.white);
             joinCodeInput.textComponent = ipTmp;
 
-            joinSubmitBtn = CreateStyledButton(joinViewObj, "Btn_JoinSubmit", "JOIN ROOM", new Vector2(0, -60), new Vector2(280, 54),
-                new Color(0.18f, 0.58f, 0.28f), Color.white, OnJoinSubmitClicked).GetComponent<Button>();
+            joinSubmitBtn = CreateStyledButton(joinViewObj, "Btn_JoinSubmit", "JOIN ROOM", new Vector2(0, -70), new Vector2(380, 76),
+                new Color(0.18f, 0.58f, 0.28f), Color.white, OnJoinSubmitClicked, 24).GetComponent<Button>();
 
-            joinStatusText = CreateTMPText(joinViewObj, "", 12, FontStyles.Normal,
-                new Vector2(0, -120), new Vector2(650, 26), new Color(1f, 0.5f, 0.5f));
+            joinStatusText = CreateTMPText(joinViewObj, "", 18, FontStyles.Normal,
+                new Vector2(0, -155), new Vector2(900, 36), new Color(1f, 0.5f, 0.5f));
 
             // --- GUEST WAITING VIEW ---
             guestWaitingViewObj = new GameObject("View_GuestWaiting");
@@ -275,20 +275,20 @@ namespace AuraKitchen
             gwvr.anchoredPosition = Vector2.zero;
             guestWaitingViewObj.SetActive(false);
 
-            CreateTMPText(guestWaitingViewObj, "CONNECTED TO ROOM:", 13, FontStyles.Bold,
-                new Vector2(0, 95), new Vector2(500, 24), new Color(0.85f, 0.85f, 0.85f));
+            CreateTMPText(guestWaitingViewObj, "CONNECTED TO ROOM:", 20, FontStyles.Bold,
+                new Vector2(0, 145), new Vector2(700, 32), new Color(0.85f, 0.85f, 0.85f));
 
-            guestRoomCodeText = CreateTMPText(guestWaitingViewObj, "AUR4", 28, FontStyles.Bold,
-                new Vector2(0, 55), new Vector2(300, 44), new Color(1.0f, 0.85f, 0.3f));
+            guestRoomCodeText = CreateTMPText(guestWaitingViewObj, "AUR4", 46, FontStyles.Bold,
+                new Vector2(0, 85), new Vector2(400, 68), new Color(1.0f, 0.85f, 0.3f));
 
-            guestRoleText = CreateTMPText(guestWaitingViewObj, "YOUR ROLE: Chef Sapphire (P2)", 14, FontStyles.Bold,
-                new Vector2(0, 10), new Vector2(500, 28), new Color(0.5f, 0.8f, 1f));
+            guestRoleText = CreateTMPText(guestWaitingViewObj, "YOUR ROLE: Chef Sapphire (P2)", 22, FontStyles.Bold,
+                new Vector2(0, 20), new Vector2(700, 40), new Color(0.5f, 0.8f, 1f));
 
-            guestWaitingStatusText = CreateTMPText(guestWaitingViewObj, "WAITING FOR HOST TO START GAME...", 15, FontStyles.Bold,
-                new Vector2(0, -50), new Vector2(600, 36), new Color(1.0f, 0.85f, 0.25f));
+            guestWaitingStatusText = CreateTMPText(guestWaitingViewObj, "WAITING FOR HOST TO START GAME...", 24, FontStyles.Bold,
+                new Vector2(0, -60), new Vector2(950, 50), new Color(1.0f, 0.85f, 0.25f));
 
-            guestLeaveBtn = CreateStyledButton(guestWaitingViewObj, "Btn_Leave", "LEAVE ROOM", new Vector2(0, -130), new Vector2(240, 48),
-                new Color(0.35f, 0.20f, 0.20f), Color.white, OnLeaveRoomClicked).GetComponent<Button>();
+            guestLeaveBtn = CreateStyledButton(guestWaitingViewObj, "Btn_Leave", "LEAVE ROOM", new Vector2(0, -165), new Vector2(320, 68),
+                new Color(0.35f, 0.20f, 0.20f), Color.white, OnLeaveRoomClicked, 20).GetComponent<Button>();
 
             // --- TAB 3: SOLO VIEW ---
             soloViewObj = new GameObject("View_Solo");
@@ -296,14 +296,14 @@ namespace AuraKitchen
             RectTransform svr = soloViewObj.AddComponent<RectTransform>();
             svr.anchoredPosition = Vector2.zero;
 
-            CreateTMPText(soloViewObj, "SOLO OFFLINE SHIFT", 18, FontStyles.Bold,
-                new Vector2(0, 70), new Vector2(500, 32), Color.white);
+            CreateTMPText(soloViewObj, "SOLO OFFLINE SHIFT", 28, FontStyles.Bold,
+                new Vector2(0, 110), new Vector2(700, 44), Color.white);
 
-            CreateTMPText(soloViewObj, "Play offline with full control of 2 chefs,\ninstant Chef Switch, and Sous-Chef assistant!", 14, FontStyles.Normal,
-                new Vector2(0, 15), new Vector2(600, 50), new Color(0.80f, 0.80f, 0.80f));
+            CreateTMPText(soloViewObj, "Play offline with full control of 2 chefs,\ninstant Chef Switch, and Sous-Chef assistant!", 20, FontStyles.Normal,
+                new Vector2(0, 35), new Vector2(850, 70), new Color(0.80f, 0.80f, 0.80f));
 
-            CreateStyledButton(soloViewObj, "Btn_StartSolo", "START SOLO SHIFT", new Vector2(0, -70), new Vector2(300, 54),
-                new Color(0.18f, 0.58f, 0.28f), Color.white, OnStartSoloClicked);
+            CreateStyledButton(soloViewObj, "Btn_StartSolo", "START SOLO SHIFT", new Vector2(0, -90), new Vector2(420, 78),
+                new Color(0.18f, 0.58f, 0.28f), Color.white, OnStartSoloClicked, 24);
         }
 
         private void SwitchTab(string tabName)
@@ -624,7 +624,7 @@ namespace AuraKitchen
             return p;
         }
 
-        private GameObject CreateStyledButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color bgColor, Color textColor, Action onClick = null)
+        private GameObject CreateStyledButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color bgColor, Color textColor, Action onClick = null, float fontSize = 18f)
         {
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent.transform, false);
@@ -647,7 +647,7 @@ namespace AuraKitchen
             btn.colors = cb;
             if (onClick != null) btn.onClick.AddListener(() => onClick());
 
-            TextMeshProUGUI tmp = CreateTMPText(btnObj, label, 15, FontStyles.Bold, Vector2.zero, size, textColor);
+            TextMeshProUGUI tmp = CreateTMPText(btnObj, label, fontSize, FontStyles.Bold, Vector2.zero, size, textColor);
             tmp.rectTransform.anchorMin = Vector2.zero;
             tmp.rectTransform.anchorMax = Vector2.one;
             tmp.rectTransform.sizeDelta = Vector2.zero;

@@ -24,6 +24,8 @@ namespace AuraKitchen
         private bool isMovingToTarget = false;
         private float dashTimer = 0f;
         private const float DashDuration = 0.45f;
+        private Vector3 lastTrackedPosition = Vector3.zero;
+        private float stuckDuration = 0f;
 
         [Header("UI Canvas")]
         private GameObject mobileCanvasObj;
@@ -124,10 +126,10 @@ namespace AuraKitchen
             sRect.anchorMax = new Vector2(0.5f, 0);
             sRect.pivot = new Vector2(0.5f, 0);
             sRect.anchoredPosition = new Vector2(0, 24);
-            sRect.sizeDelta = new Vector2(240, 52);
+            sRect.sizeDelta = new Vector2(260, 56);
 
             Image sImg = switchChefBtnObj.AddComponent<Image>();
-            sImg.color = new Color(0.18f, 0.18f, 0.18f, 0.88f);
+            sImg.color = new Color(0.18f, 0.18f, 0.18f, 0.90f);
 
             Outline sOutline = switchChefBtnObj.AddComponent<Outline>();
             sOutline.effectColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
@@ -157,7 +159,7 @@ namespace AuraKitchen
                 switchChefBtnText.font = font;
             }
             switchChefBtnText.text = "SWITCH CHEF (P1/P2)";
-            switchChefBtnText.fontSize = 16;
+            switchChefBtnText.fontSize = 17;
             switchChefBtnText.fontStyle = FontStyles.Bold;
             switchChefBtnText.alignment = TextAlignmentOptions.Center;
             switchChefBtnText.color = Color.white;
@@ -231,7 +233,7 @@ namespace AuraKitchen
 
             if (!tapBegan) return;
 
-            // Trigger Dash if duck is already moving towards a target!
+            // Trigger Dash if duck is already traveling towards a target!
             if (isMovingToTarget)
             {
                 TriggerDash();
@@ -271,9 +273,21 @@ namespace AuraKitchen
                 // 3. Tapped Floor / Destination?
                 Vector3 dest = hit.point;
                 dest.y = player.transform.position.y;
+
+                // If tapped directly beneath player, cancel movement
+                float distToTap = Vector3.Distance(new Vector3(player.transform.position.x, 0, player.transform.position.z),
+                                                   new Vector3(dest.x, 0, dest.z));
+                if (distToTap <= 0.45f)
+                {
+                    ResetMovement();
+                    return;
+                }
+
                 targetMovePosition = dest;
                 targetCounter = null;
                 isMovingToTarget = true;
+                stuckDuration = 0f;
+                lastTrackedPosition = player.transform.position;
             }
         }
 
@@ -282,7 +296,6 @@ namespace AuraKitchen
             Vector3 counterPos = counter.transform.position;
             Vector3 playerPos = player.transform.position;
 
-            // Compute ideal interaction position in front of counter
             Vector3 interactPos = counterPos + counter.transform.forward * 1.15f;
             interactPos.y = playerPos.y;
 
@@ -290,26 +303,9 @@ namespace AuraKitchen
                                                    new Vector3(counterPos.x, 0, counterPos.z));
 
             // If already standing right next to this counter, interact immediately!
-            if (distToCounter <= 1.65f)
+            if (distToCounter <= 1.6f)
             {
-                Vector3 lookDir = (counterPos - playerPos);
-                lookDir.y = 0;
-                if (lookDir != Vector3.zero)
-                {
-                    player.transform.forward = lookDir.normalized;
-                }
-
-                // If it's a cutting counter with something to chop, trigger Alt, else Normal
-                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HoldingObject)
-                {
-                    player.InteractAltAction(this, EventArgs.Empty);
-                }
-                else
-                {
-                    player.InteractionAction(this, EventArgs.Empty);
-                }
-
-                ResetMovement();
+                ArriveAtCounter(player, counter);
             }
             else
             {
@@ -317,6 +313,8 @@ namespace AuraKitchen
                 targetMovePosition = interactPos;
                 targetCounter = counter;
                 isMovingToTarget = true;
+                stuckDuration = 0f;
+                lastTrackedPosition = playerPos;
             }
         }
 
@@ -334,29 +332,85 @@ namespace AuraKitchen
             Vector3 currentPos = player.transform.position;
             Vector3 offset = targetMovePosition - currentPos;
             offset.y = 0f;
+            float distToTarget = offset.magnitude;
 
-            float dist = offset.magnitude;
-            if (dist > 0.28f)
+            // 1. Check Arrival at Counter
+            if (targetCounter != null)
             {
-                Vector3 dir = offset.normalized;
-                TouchMovementVector = new Vector2(dir.x, dir.z);
+                Vector3 counterPos = targetCounter.transform.position;
+                float distToCounter = Vector3.Distance(new Vector3(currentPos.x, 0, currentPos.z),
+                                                       new Vector3(counterPos.x, 0, counterPos.z));
+
+                if (distToCounter <= 1.6f || distToTarget <= 0.45f)
+                {
+                    ArriveAtCounter(player, targetCounter);
+                    return;
+                }
+            }
+            // 2. Check Arrival at Floor Point
+            else if (distToTarget <= 0.40f)
+            {
+                ResetMovement();
+                return;
+            }
+
+            // 3. Stuck / Obstacle Detection
+            float movedDelta = Vector3.Distance(new Vector3(currentPos.x, 0, currentPos.z),
+                                                new Vector3(lastTrackedPosition.x, 0, lastTrackedPosition.z));
+            lastTrackedPosition = currentPos;
+
+            if (movedDelta < 0.03f)
+            {
+                stuckDuration += Time.deltaTime;
+                if (stuckDuration > 0.30f)
+                {
+                    if (targetCounter != null)
+                    {
+                        Vector3 counterPos = targetCounter.transform.position;
+                        float distToCounter = Vector3.Distance(new Vector3(currentPos.x, 0, currentPos.z),
+                                                               new Vector3(counterPos.x, 0, counterPos.z));
+                        if (distToCounter <= 1.85f)
+                        {
+                            ArriveAtCounter(player, targetCounter);
+                            return;
+                        }
+                    }
+                    ResetMovement();
+                    return;
+                }
             }
             else
             {
-                // Reached destination!
-                ResetMovement();
+                stuckDuration = 0f;
+            }
 
-                if (targetCounter != null)
+            // 4. Smooth movement vector
+            Vector3 dir = offset.normalized;
+            float speedFactor = Mathf.Clamp01(distToTarget / 0.65f);
+            speedFactor = Mathf.Max(speedFactor, 0.45f);
+            TouchMovementVector = new Vector2(dir.x * speedFactor, dir.z * speedFactor);
+        }
+
+        private void ArriveAtCounter(Player player, KitchenCounter counter)
+        {
+            ResetMovement();
+
+            if (counter != null && player != null)
+            {
+                Vector3 lookDir = (counter.transform.position - player.transform.position);
+                lookDir.y = 0;
+                if (lookDir != Vector3.zero)
                 {
-                    Vector3 lookDir = (targetCounter.transform.position - player.transform.position);
-                    lookDir.y = 0;
-                    if (lookDir != Vector3.zero)
-                    {
-                        player.transform.forward = lookDir.normalized;
-                    }
+                    player.transform.forward = lookDir.normalized;
+                }
 
+                if (counter is CuttingCounter cuttingCounter && cuttingCounter.HoldingObject)
+                {
+                    player.InteractAltAction(this, EventArgs.Empty);
+                }
+                else
+                {
                     player.InteractionAction(this, EventArgs.Empty);
-                    targetCounter = null;
                 }
             }
         }
@@ -382,7 +436,11 @@ namespace AuraKitchen
         private void ResetMovement()
         {
             isMovingToTarget = false;
+            targetCounter = null;
             TouchMovementVector = Vector2.zero;
+            stuckDuration = 0f;
+            dashTimer = 0f;
+            IsTouchSprinting = false;
         }
 
         private void ShowTapMarker(Vector2 screenPos)
