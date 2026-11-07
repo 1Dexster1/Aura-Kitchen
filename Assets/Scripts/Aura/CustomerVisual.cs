@@ -166,27 +166,33 @@ namespace AuraKitchen
 
             if (customer.State == Customer.CustomerState.Eating)
             {
-                moodEmojiText.text = "😋";
+                moodEmojiText.text = "DELICIOUS";
+                moodEmojiText.color = new Color(1f, 0.85f, 0.2f);
             }
             else if (customer.State == Customer.CustomerState.LeavingHappy)
             {
-                moodEmojiText.text = "⭐";
+                moodEmojiText.text = "PERFECT +TIP";
+                moodEmojiText.color = new Color(0.2f, 1f, 0.4f);
             }
             else if (customer.State == Customer.CustomerState.LeavingAngry)
             {
-                moodEmojiText.text = "😡";
+                moodEmojiText.text = "ANGRY -NO TIP";
+                moodEmojiText.color = new Color(1f, 0.3f, 0.3f);
             }
             else if (patienceRatio > 0.65f)
             {
-                moodEmojiText.text = "😊";
+                moodEmojiText.text = "PATIENT";
+                moodEmojiText.color = new Color(0.4f, 1f, 0.5f);
             }
             else if (patienceRatio > 0.30f)
             {
-                moodEmojiText.text = "😐";
+                moodEmojiText.text = "WAITING";
+                moodEmojiText.color = new Color(1f, 0.75f, 0.2f);
             }
             else
             {
-                moodEmojiText.text = "⏳";
+                moodEmojiText.text = "URGENT!";
+                moodEmojiText.color = new Color(1f, 0.25f, 0.25f);
             }
         }
 

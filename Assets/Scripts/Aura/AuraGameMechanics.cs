@@ -85,7 +85,7 @@ namespace AuraKitchen
                 {
                     float pulse = 0.85f + Mathf.PingPong(Time.time * 6f, 0.3f);
                     auraRushBannerText.color = new Color(1f, 0.85f * pulse, 0.2f * pulse);
-                    auraRushBannerText.text = $"⚡ AURA RUSH! 2X SPEED & PTS ({Mathf.CeilToInt(AuraRushTimeRemaining)}s) ⚡";
+                    auraRushBannerText.text = $"[AURA RUSH] 2X SPEED & POINTS ({Mathf.CeilToInt(AuraRushTimeRemaining)}s)";
                 }
             }
 
@@ -129,17 +129,17 @@ namespace AuraKitchen
             Color hypeCol;
             if (IsAuraRushActive)
             {
-                hypeMsg = $"🔥 FEVER DELIVERY! +{earned} PTS (+{bonusSec:0}s) 🔥";
+                hypeMsg = $"[FEVER DELIVERY] +{earned} PTS (+{bonusSec:0}s)";
                 hypeCol = new Color(1f, 0.85f, 0.2f);
             }
             else if (ComboStreak >= 3)
             {
-                hypeMsg = $"⚡ COMBO x{ComboStreak}! +{earned} PTS (+{bonusSec:0}s) ⚡";
+                hypeMsg = $"[COMBO x{ComboStreak}] +{earned} PTS (+{bonusSec:0}s)";
                 hypeCol = new Color(0.2f, 0.95f, 1f);
             }
             else if (ComboStreak == 2)
             {
-                hypeMsg = $"GREAT STREAK! +{earned} PTS (+{bonusSec:0}s)";
+                hypeMsg = $"[GOOD STREAK] +{earned} PTS (+{bonusSec:0}s)";
                 hypeCol = new Color(0.3f, 1f, 0.4f);
             }
             else
@@ -168,7 +168,7 @@ namespace AuraKitchen
                 auraRushBannerObj.SetActive(true);
             }
 
-            ShowHypeText("⚡⚡ AURA RUSH ACTIVATED! ⚡⚡", new Color(1.0f, 0.80f, 0.1f));
+            ShowHypeText("[AURA RUSH ACTIVATED!]", new Color(1.0f, 0.80f, 0.1f));
         }
 
         private void EndAuraRush()

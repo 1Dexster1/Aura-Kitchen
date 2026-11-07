@@ -76,11 +76,20 @@ namespace AuraKitchen
             localPlayer = Player.Instance;
             if (localPlayer != null)
             {
-                localPlayer.isRemotePlayer = false;
+                Vector3[] defaultSpawns = { new Vector3(-2.5f, 0, 0), new Vector3(2.5f, 0, 0), new Vector3(-2.5f, 0, 2f), new Vector3(2.5f, 0, 2f) };
+                localPlayer.transform.position = defaultSpawns[Mathf.Clamp(MySlotIndex, 0, 3)];
+                localPlayer.transform.rotation = Quaternion.identity;
+                localPlayer.SetAsLocalInstance();
+
                 PlayerAuraVisual vis = localPlayer.GetComponent<PlayerAuraVisual>();
                 if (vis == null) vis = localPlayer.gameObject.AddComponent<PlayerAuraVisual>();
-                string[] chefNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
-                vis.SetupPlayerVisual(MySlotIndex, chefNames[Mathf.Clamp(MySlotIndex, 0, 3)]);
+                string myChefName = PlayerPrefs.GetString("Aura_PlayerName", "");
+                if (string.IsNullOrEmpty(myChefName))
+                {
+                    string[] chefNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
+                    myChefName = chefNames[Mathf.Clamp(MySlotIndex, 0, 3)];
+                }
+                vis.SetupPlayerVisual(MySlotIndex, myChefName);
             }
 
             CreateScoreboardUI();
@@ -140,7 +149,7 @@ namespace AuraKitchen
 
         private IEnumerator NetworkSyncLoop()
         {
-            WaitForSeconds wait = new WaitForSeconds(0.08f); // 12.5 Hz network sync
+            WaitForSeconds wait = new WaitForSeconds(0.12f); // 8.3 Hz network sync (smoother, avoids mobile packet pile-up)
             while (IsOnlineActive)
             {
                 if (!isSyncing && localPlayer != null)
@@ -226,15 +235,37 @@ namespace AuraKitchen
                         Player rPlayer = clone.GetComponent<Player>();
                         rPlayer.isRemotePlayer = true;
 
+                        // CRITICAL: Re-assert localPlayer as Player.Instance so touch controls never get stolen
+                        if (localPlayer != null)
+                        {
+                            localPlayer.SetAsLocalInstance();
+                        }
+
+                        // Extract custom name if present
+                        string slotName = chefNames[slot];
+                        int sIdx = json.IndexOf($"\"slot\":{slot}");
+                        if (sIdx >= 0)
+                        {
+                            int nIdx = json.IndexOf("\"name\":\"", sIdx);
+                            if (nIdx >= 0 && nIdx < sIdx + 120)
+                            {
+                                int eIdx = json.IndexOf("\"", nIdx + 8);
+                                if (eIdx > nIdx + 8)
+                                {
+                                    slotName = json.Substring(nIdx + 8, eIdx - (nIdx + 8));
+                                }
+                            }
+                        }
+
                         // Ensure visual setup
                         PlayerAuraVisual vis = clone.GetComponent<PlayerAuraVisual>();
                         if (vis == null) vis = clone.AddComponent<PlayerAuraVisual>();
-                        vis.SetupPlayerVisual(slot, chefNames[slot]);
+                        vis.SetupPlayerVisual(slot, slotName);
 
                         RemoteChefData data = new RemoteChefData
                         {
                             slot = slot,
-                            name = chefNames[slot],
+                            name = slotName,
                             playerComponent = rPlayer,
                             targetPos = defaultSpawns[slot],
                             targetRot = Quaternion.identity,
@@ -322,14 +353,14 @@ namespace AuraKitchen
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            // Scoreboard Container (Top-Left under orders)
+            // Scoreboard Container (Top-Right, completely clear of orders on top-left)
             GameObject board = new GameObject("Challenge_Scoreboard");
             board.transform.SetParent(scoreboardCanvasObj.transform, false);
             RectTransform brt = board.AddComponent<RectTransform>();
-            brt.anchorMin = new Vector2(0f, 1f);
-            brt.anchorMax = new Vector2(0f, 1f);
-            brt.pivot = new Vector2(0f, 1f);
-            brt.anchoredPosition = new Vector2(24, -135);
+            brt.anchorMin = new Vector2(1f, 1f);
+            brt.anchorMax = new Vector2(1f, 1f);
+            brt.pivot = new Vector2(1f, 1f);
+            brt.anchoredPosition = new Vector2(-24, -20);
             brt.sizeDelta = new Vector2(360, 110);
 
             Image bImg = board.AddComponent<Image>();
@@ -389,7 +420,14 @@ namespace AuraKitchen
             int myDishes = GameManager.Instance != null ? GameManager.Instance.PlateServed : 0;
             int myScore = AuraGameMechanics.Instance != null ? AuraGameMechanics.Instance.CurrentScore : 0;
 
-            string bestChef = MySlotIndex == 0 ? "Chef Ruby" : (MySlotIndex == 1 ? "Chef Sapphire" : $"Chef {MySlotIndex + 1}");
+            string myName = PlayerPrefs.GetString("Aura_PlayerName", "");
+            if (string.IsNullOrEmpty(myName))
+            {
+                string[] defaultChefNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
+                myName = defaultChefNames[Mathf.Clamp(MySlotIndex, 0, 3)];
+            }
+
+            string bestChef = myName;
             int maxDishes = myDishes;
             int maxScore = myScore;
             bool isTie = false;
@@ -412,9 +450,29 @@ namespace AuraKitchen
 
             if (isTie)
             {
-                return "🤝 TIE GAME! INCREDIBLE TEAMWORK!";
+                return "[TIE MATCH] INCREDIBLE TEAMWORK!";
             }
-            return $"🏆 WINNER: {bestChef} ({maxDishes} Dishes)!";
+            return $"[CHALLENGE WINNER] {bestChef} ({maxDishes} Dishes Delivered)!";
+        }
+
+        public void ReturnToLobby()
+        {
+            StartCoroutine(ResetAndReturnToLobby());
+        }
+
+        private IEnumerator ResetAndReturnToLobby()
+        {
+            string url = $"{serverBaseUrl}/api/room/{ActiveRoomCode}/reset";
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            {
+                req.timeout = 6;
+                req.downloadHandler = new DownloadHandlerBuffer();
+                yield return req.SendWebRequest();
+            }
+
+            // Flag so MainMenu automatically re-opens the active room lobby
+            PlayerPrefs.SetInt("Aura_ReturnToLobby", 1);
+            SceneSwitcher.LoadScene(SceneSwitcher.Scene.MainMenuScene);
         }
 
         private IEnumerator GetRoomState(string code, Action<bool, string> onComplete)
@@ -430,3 +488,4 @@ namespace AuraKitchen
         }
     }
 }
+

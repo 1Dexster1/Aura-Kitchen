@@ -22,6 +22,7 @@ public class GameEndUI : MonoBehaviour
     private TextMeshProUGUI modernScoreValText;
     private TextMeshProUGUI modernStreakValText;
     private TextMeshProUGUI modernEfficiencyValText;
+    private TextMeshProUGUI playAgainBtnText;
 
     private void Awake()
     {
@@ -40,7 +41,14 @@ public class GameEndUI : MonoBehaviour
 
     private void PlayAgainAction()
     {
-        SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
+        if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
+        {
+            AuraOnlineMultiplayerManager.Instance.ReturnToLobby();
+        }
+        else
+        {
+            SceneSwitcher.LoadScene(SceneSwitcher.Scene.GameScene);
+        }
     }
 
     private void MainMenuAction()
@@ -74,6 +82,11 @@ public class GameEndUI : MonoBehaviour
         if (modernModalObj != null)
         {
             modernModalObj.SetActive(true);
+            if (playAgainBtnText != null)
+            {
+                bool isOnline = AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive;
+                playAgainBtnText.text = isOnline ? "RETURN TO ROOM LOBBY" : "PLAY AGAIN";
+            }
             PopulateModernStats();
         }
     }
@@ -93,37 +106,37 @@ public class GameEndUI : MonoBehaviour
         int maxStreak = AuraGameMechanics.Instance != null ? AuraGameMechanics.Instance.MaxComboStreak : 1;
         float efficiency = GameManager.Instance != null ? GameManager.Instance.IngredientUtilityPercent : 100f;
 
-        // Stars & Title
-        string stars;
+        // Rating & Rank Title
+        string ratingText;
         string rankTitle;
 
         if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
         {
-            stars = "<color=#ffd700>★ ★ ★</color>";
+            ratingText = "<color=#ffd700>MULTIPLAYER CLASH COMPLETED</color>";
             rankTitle = AuraOnlineMultiplayerManager.Instance.GetChallengeWinnerSummary();
         }
         else if (plates >= 5)
         {
-            stars = "<color=#ffd700>★ ★ ★</color>";
-            rankTitle = "<color=#ffd700>👑 MASTER OF AURA (3-STAR CHEF)</color>";
+            ratingText = "<color=#ffd700>PERFORMANCE: 3-STAR EXCELLENCE</color>";
+            rankTitle = "<color=#ffd700>RANK: MASTER OF AURA</color>";
         }
         else if (plates >= 3)
         {
-            stars = "<color=#ffd700>★ ★</color><color=#555555> ☆</color>";
-            rankTitle = "<color=#00e5ff>⭐ EXECUTIVE SOUS-CHEF</color>";
+            ratingText = "<color=#ffd700>PERFORMANCE: 2-STAR GREAT</color>";
+            rankTitle = "<color=#00e5ff>RANK: EXECUTIVE SOUS-CHEF</color>";
         }
         else if (plates >= 1)
         {
-            stars = "<color=#ffd700>★</color><color=#555555> ☆ ☆</color>";
-            rankTitle = "<color=#ffaa00>🍳 CERTIFIED LINE COOK</color>";
+            ratingText = "<color=#ffaa00>PERFORMANCE: 1-STAR PASSED</color>";
+            rankTitle = "<color=#ffaa00>RANK: CERTIFIED LINE COOK</color>";
         }
         else
         {
-            stars = "<color=#555555>☆ ☆ ☆</color>";
-            rankTitle = "<color=#ff6666>KITCHEN APPRENTICE (Keep practicing!)</color>";
+            ratingText = "<color=#888888>PERFORMANCE: UNRANKED</color>";
+            rankTitle = "<color=#ff6666>RANK: KITCHEN APPRENTICE</color>";
         }
 
-        if (modernStarsText != null) modernStarsText.text = stars;
+        if (modernStarsText != null) modernStarsText.text = ratingText;
         if (modernRankTitleText != null) modernRankTitleText.text = rankTitle;
         if (modernPlatesValText != null) modernPlatesValText.text = $"{plates} Dishes";
         if (modernScoreValText != null) modernScoreValText.text = $"{score:N0} PTS";
@@ -168,13 +181,12 @@ public class GameEndUI : MonoBehaviour
         CreateText(card, "Restaurant Performance & Ratings", 18, FontStyles.Normal,
             new Vector2(0, 270), new Vector2(800, 30), new Color(0.75f, 0.75f, 0.75f));
 
-        // 3 Big Gold Stars
-        modernStarsText = CreateText(card, "★ ★ ★", 54, FontStyles.Bold,
-            new Vector2(0, 205), new Vector2(600, 70), new Color(1.0f, 0.85f, 0.2f));
+        // Performance Rating & Chef Rank
+        modernStarsText = CreateText(card, "PERFORMANCE: 3-STAR EXCELLENCE", 26, FontStyles.Bold,
+            new Vector2(0, 205), new Vector2(800, 50), new Color(1.0f, 0.85f, 0.2f));
 
-        // Chef Rank Badge
-        modernRankTitleText = CreateText(card, "👑 MASTER OF AURA", 24, FontStyles.Bold,
-            new Vector2(0, 140), new Vector2(800, 40), Color.white);
+        modernRankTitleText = CreateText(card, "RANK: MASTER OF AURA", 24, FontStyles.Bold,
+            new Vector2(0, 150), new Vector2(800, 40), Color.white);
 
         // 4 Stat Cards
         CreateStatTile(card, "DISHES SERVED", "0 Dishes", new Vector2(-250, 45), out modernPlatesValText);
@@ -183,7 +195,7 @@ public class GameEndUI : MonoBehaviour
         CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), out modernEfficiencyValText);
 
         // Buttons
-        CreateButton(card, "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
+        playAgainBtnText = CreateButton(card, "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
             new Color(0.18f, 0.58f, 0.28f), PlayAgainAction, 24);
 
         CreateButton(card, "MAIN MENU", new Vector2(220, -250), new Vector2(400, 80),
@@ -228,7 +240,7 @@ public class GameEndUI : MonoBehaviour
         return tmp;
     }
 
-    private void CreateButton(GameObject parent, string label, Vector2 pos, Vector2 size, Color bgColor, Action onClick, float fontSize)
+    private TextMeshProUGUI CreateButton(GameObject parent, string label, Vector2 pos, Vector2 size, Color bgColor, Action onClick, float fontSize)
     {
         GameObject btnObj = new GameObject("Btn_" + label);
         btnObj.transform.SetParent(parent.transform, false);
@@ -259,5 +271,6 @@ public class GameEndUI : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;
         tmp.raycastTarget = false;
+        return tmp;
     }
 }

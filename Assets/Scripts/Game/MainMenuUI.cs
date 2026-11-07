@@ -72,7 +72,7 @@ public class MainMenuUI : MonoBehaviour
             {
                 if (AuraKitchen.AuraMultiplayerLobbyUI.Instance != null)
                 {
-                    AuraKitchen.AuraMultiplayerLobbyUI.Instance.ShowLobby();
+                    AuraKitchen.AuraMultiplayerLobbyUI.Instance.OpenMultiplayer();
                 }
             });
         }

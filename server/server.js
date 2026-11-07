@@ -180,6 +180,23 @@ app.post('/api/room/:code/deliver', (req, res) => {
   });
 });
 
+app.post('/api/room/:code/reset', (req, res) => {
+  const code = req.params.code.toUpperCase().trim();
+  const room = activeRooms.get(code);
+  if (!room) {
+    return res.status(404).json({ success: false, error: 'Room not found' });
+  }
+  room.isPlaying = false;
+  room.startedAt = null;
+  room.totalDishes = 0;
+  for (const p of room.players) {
+    p.dishes = 0;
+    p.score = 0;
+  }
+  console.log(`[Room API] Room ${code} reset to lobby state`);
+  res.json({ success: true, room });
+});
+
 app.post('/api/room/:code/leave', (req, res) => {
   const code = req.params.code.toUpperCase().trim();
   const slot = Number(req.body.slot);

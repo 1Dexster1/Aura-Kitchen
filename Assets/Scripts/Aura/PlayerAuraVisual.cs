@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using TMPro;
 
@@ -5,91 +6,109 @@ namespace AuraKitchen
 {
     public class PlayerAuraVisual : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private MeshRenderer bodyMeshRenderer;
-        [SerializeField] private Material[] playerBodyMaterials;
-        [SerializeField] private GameObject auraRingObject;
-        [SerializeField] private TextMeshPro overheadText;
-
         [Header("Aura Colors")]
         public static readonly Color[] AuraColors = new Color[]
         {
-            new Color(1.0f, 0.25f, 0.25f, 0.8f), // P1: Ruby Red
-            new Color(0.2f, 0.6f, 1.0f, 0.8f),   // P2: Sapphire Blue
-            new Color(0.2f, 0.85f, 0.4f, 0.8f),  // P3: Emerald Green
-            new Color(1.0f, 0.8f, 0.15f, 0.8f)   // P4: Amber Gold
+            new Color(1.0f, 0.18f, 0.18f, 1.0f), // P1: Ruby Red
+            new Color(0.12f, 0.55f, 1.0f, 1.0f),  // P2: Sapphire Blue
+            new Color(0.08f, 0.85f, 0.35f, 1.0f), // P3: Emerald Green
+            new Color(1.0f, 0.78f, 0.12f, 1.0f)   // P4: Amber Gold
         };
 
         private int playerIndex = 0;
-        private bool isCurrentActive = true;
-        private Material auraMaterialInstance;
+        private string chefDisplayName = "";
+        private TextMeshPro overheadText;
 
         public void SetupPlayerVisual(int index, string displayName = "")
         {
             playerIndex = Mathf.Clamp(index, 0, AuraColors.Length - 1);
+            chefDisplayName = displayName;
 
-            // Apply body material
-            if (bodyMeshRenderer != null && playerBodyMaterials != null && playerIndex < playerBodyMaterials.Length)
+            ApplyChefColor(AuraColors[playerIndex]);
+            EnsureOverheadTag();
+        }
+
+        private void ApplyChefColor(Color color)
+        {
+            // Find all renderers in children belonging to the duck body and head
+            MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>(true);
+            foreach (var r in renderers)
             {
-                if (playerBodyMaterials[playerIndex] != null)
+                if (r == null || r.sharedMaterial == null) continue;
+
+                if (r.gameObject.name == "Head" || r.gameObject.name == "Body" ||
+                    r.sharedMaterial.name.Contains("PlayerBody"))
                 {
-                    bodyMeshRenderer.material = playerBodyMaterials[playerIndex];
+                    Material instancedMat = new Material(r.sharedMaterial);
+                    instancedMat.color = color;
+                    if (instancedMat.HasProperty("_BaseColor"))
+                    {
+                        instancedMat.SetColor("_BaseColor", color);
+                    }
+                    if (instancedMat.HasProperty("_Color"))
+                    {
+                        instancedMat.SetColor("_Color", color);
+                    }
+                    r.material = instancedMat;
                 }
             }
-            else if (bodyMeshRenderer != null)
+        }
+
+        private void EnsureOverheadTag()
+        {
+            if (overheadText == null)
             {
-                bodyMeshRenderer.material.color = AuraColors[playerIndex];
+                // Look for existing tag
+                overheadText = GetComponentInChildren<TextMeshPro>();
+
+                if (overheadText == null)
+                {
+                    GameObject tagObj = new GameObject("Overhead_Tag");
+                    tagObj.transform.SetParent(transform, false);
+                    tagObj.transform.localPosition = new Vector3(0, 2.35f, 0);
+
+                    overheadText = tagObj.AddComponent<TextMeshPro>();
+                    overheadText.alignment = TextAlignmentOptions.Center;
+                    overheadText.fontSize = 5.2f;
+                    overheadText.fontStyle = FontStyles.Bold;
+                    overheadText.outlineWidth = 0.28f;
+                    overheadText.outlineColor = new Color32(0, 0, 0, 255);
+                    overheadText.rectTransform.sizeDelta = new Vector2(8f, 1.8f);
+                }
             }
 
-            // Create or configure Aura Ring
-            SetupAuraRing();
-
-            // Setup overhead tag
             if (overheadText != null)
             {
-                overheadText.text = string.IsNullOrEmpty(displayName) ? $"Chef {playerIndex + 1}" : displayName;
+                string label = string.IsNullOrEmpty(chefDisplayName) ? $"Chef {playerIndex + 1}" : chefDisplayName;
+                overheadText.text = label;
                 overheadText.color = AuraColors[playerIndex];
+            }
+        }
+
+        public void UpdateDisplayName(string newName)
+        {
+            chefDisplayName = newName;
+            if (overheadText != null)
+            {
+                overheadText.text = newName;
             }
         }
 
         public void SetChefActive(bool active)
         {
-            isCurrentActive = active;
-            if (auraRingObject != null)
-            {
-                auraRingObject.SetActive(active);
-            }
             if (overheadText != null)
             {
                 overheadText.gameObject.SetActive(active);
             }
         }
 
-        private void SetupAuraRing()
+        private void LateUpdate()
         {
-            // Do not create procedural primitives to avoid missing URP shader / pink artifacts
-            if (auraRingObject != null)
-            {
-                Destroy(auraRingObject);
-                auraRingObject = null;
-            }
-        }
-
-        private void Update()
-        {
-            // Face overhead text towards camera
+            // Face camera directly
             if (overheadText != null && Camera.main != null)
             {
                 overheadText.transform.rotation = Camera.main.transform.rotation;
             }
-
-            // Subtle pulsing of aura ring
-            if (auraRingObject != null && isCurrentActive)
-            {
-                float pulse = 1.35f + Mathf.Sin(Time.time * 4f) * 0.08f;
-                auraRingObject.transform.localScale = new Vector3(pulse, 0.02f, pulse);
-            }
         }
     }
 }
-

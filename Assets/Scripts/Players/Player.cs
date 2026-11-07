@@ -46,10 +46,16 @@ public class Player : MonoBehaviour, IKitchenObjectHolder
 
     private void Awake()
     {
-        if (!isRemotePlayer)
+        if (!isRemotePlayer && Instance == null)
         {
             Instance = this;
         }
+    }
+
+    public void SetAsLocalInstance()
+    {
+        isRemotePlayer = false;
+        Instance = this;
     }
 
     private void Start()

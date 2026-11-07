@@ -146,7 +146,7 @@ namespace AuraKitchen
         {
             if (customerRatingText != null)
             {
-                customerRatingText.text = $"⭐ {e.AverageRating:0.0}";
+                customerRatingText.text = $"RATING: {e.AverageRating:0.0} / 5.0";
             }
         }
 
@@ -168,11 +168,11 @@ namespace AuraKitchen
 
             if (comboStreak >= 4)
             {
-                comboMultiplierText.text = $"<color=#ff3d00>x4 MAX AURA 🔥</color>";
+                comboMultiplierText.text = $"<color=#ff3d00>[x4 MAX AURA]</color>";
             }
             else if (comboStreak > 1)
             {
-                comboMultiplierText.text = $"<color=#ffaa00>x{comboStreak} STREAK</color>";
+                comboMultiplierText.text = $"<color=#ffaa00>[x{comboStreak} STREAK]</color>";
             }
             else
             {
@@ -225,21 +225,21 @@ namespace AuraKitchen
             if (dishesServedText != null) dishesServedText.text = $"Dishes Served: {plates}";
             if (happyCustomersText != null) happyCustomersText.text = $"Happy Customers: {happy}";
             if (totalTipsText != null) totalTipsText.text = $"Tips & Revenue: ${tips}";
-            if (finalRatingText != null) finalRatingText.text = $"Restaurant Aura: ⭐ {rating:0.0} / 5.0";
+            if (finalRatingText != null) finalRatingText.text = $"Restaurant Aura: {rating:0.0} / 5.0";
 
             if (rankTitleText != null)
             {
                 if (rating >= 4.5f && plates >= 8)
                 {
-                    rankTitleText.text = "<color=#ffd700>👑 3-STAR MICHELIN AURA MASTER</color>";
+                    rankTitleText.text = "<color=#ffd700>RANK: 3-STAR MICHELIN MASTER</color>";
                 }
                 else if (rating >= 3.5f && plates >= 4)
                 {
-                    rankTitleText.text = "<color=#00e5ff>⭐ EXECUTIVE SOUS-CHEF</color>";
+                    rankTitleText.text = "<color=#00e5ff>RANK: EXECUTIVE SOUS-CHEF</color>";
                 }
                 else
                 {
-                    rankTitleText.text = "<color=#ffaa00>🍳 TALENTED LINE COOK</color>";
+                    rankTitleText.text = "<color=#ffaa00>RANK: CERTIFIED LINE COOK</color>";
                 }
             }
         }
