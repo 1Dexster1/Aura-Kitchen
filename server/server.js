@@ -131,6 +131,55 @@ app.post('/api/room/:code/start', (req, res) => {
   res.json({ success: true, isPlaying: true, room });
 });
 
+app.post('/api/room/:code/sync', (req, res) => {
+  const code = req.params.code.toUpperCase().trim();
+  const room = activeRooms.get(code);
+  if (!room) {
+    return res.status(404).json({ success: false, error: 'Room not found' });
+  }
+
+  const { slot, x, z, rotY, isWalking, dishes, score } = req.body;
+  const p = room.players.find(pl => pl.slot === Number(slot));
+  if (p) {
+    if (typeof x === 'number') p.x = x;
+    if (typeof z === 'number') p.z = z;
+    if (typeof rotY === 'number') p.rotY = rotY;
+    if (typeof isWalking === 'boolean') p.isWalking = isWalking;
+    if (typeof dishes === 'number') p.dishes = dishes;
+    if (typeof score === 'number') p.score = score;
+    p.lastSeen = Date.now();
+  }
+
+  res.json({
+    success: true,
+    isPlaying: room.isPlaying,
+    players: room.players
+  });
+});
+
+app.post('/api/room/:code/deliver', (req, res) => {
+  const code = req.params.code.toUpperCase().trim();
+  const room = activeRooms.get(code);
+  if (!room) {
+    return res.status(404).json({ success: false, error: 'Room not found' });
+  }
+
+  const { slot, dishName, earnedPoints } = req.body;
+  const p = room.players.find(pl => pl.slot === Number(slot));
+  if (p) {
+    p.dishes = (p.dishes || 0) + 1;
+    p.score = (p.score || 0) + (Number(earnedPoints) || 100);
+    room.totalDishes = (room.totalDishes || 0) + 1;
+    console.log(`[Room ${code}] ${p.name} delivered ${dishName}! (Total dishes: ${p.dishes}, Score: ${p.score})`);
+  }
+
+  res.json({
+    success: true,
+    players: room.players,
+    totalDishes: room.totalDishes
+  });
+});
+
 app.post('/api/room/:code/leave', (req, res) => {
   const code = req.params.code.toUpperCase().trim();
   const slot = Number(req.body.slot);

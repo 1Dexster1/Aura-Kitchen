@@ -27,6 +27,14 @@ public class Player : MonoBehaviour, IKitchenObjectHolder
     [SerializeField] private GameInput gameInput;
     [SerializeField] private Transform objectPickupPoint;
 
+    [Header("Multiplayer & Network")]
+    public bool isRemotePlayer = false;
+
+    public void SetRemoteWalking(bool walking)
+    {
+        isWalking = walking;
+    }
+
     private KitchenObject currentKitchenObject = null;
     private bool isWalking = false;
     private bool isSprinting = false;
@@ -38,21 +46,36 @@ public class Player : MonoBehaviour, IKitchenObjectHolder
 
     private void Awake()
     {
-        if (Instance != null)
+        if (!isRemotePlayer)
         {
-            Debug.LogError("Cannot have multiple instance of player");
+            Instance = this;
         }
-        Instance = this;
     }
 
     private void Start()
     {
-        gameInput.OnPlayerInteract += InteractionAction;
-        gameInput.OnPlayerInteractAlt += InteractAltAction;
+        if (isRemotePlayer) return;
+
+        if (gameInput != null)
+        {
+            gameInput.OnPlayerInteract += InteractionAction;
+            gameInput.OnPlayerInteractAlt += InteractAltAction;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (!isRemotePlayer && gameInput != null)
+        {
+            gameInput.OnPlayerInteract -= InteractionAction;
+            gameInput.OnPlayerInteractAlt -= InteractAltAction;
+        }
     }
 
     private void Update()
     {
+        if (isRemotePlayer) return; // Remote player movement is driven via network sync
+
         Vector2 inputVector = gameInput.GetMovementVector();
 
         isWalking = inputVector != Vector2.zero;

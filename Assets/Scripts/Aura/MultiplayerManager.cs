@@ -126,8 +126,8 @@ namespace AuraKitchen
             {
                 SpawnAdditionalChef(1, "Chef Sapphire");
             }
-            // If LocalCoop or Online with 4 players, spawn remaining chefs
-            else if (currentMode == Mode.LocalCoop || currentMode == Mode.OnlineCoop)
+            // If LocalCoop (offline shared screen), spawn remaining chefs
+            else if (currentMode == Mode.LocalCoop)
             {
                 int targetCount = Mathf.Min(maxPlayers, spawnPositions.Length);
                 for (int i = registeredPlayers.Count; i < targetCount; i++)
@@ -142,6 +142,7 @@ namespace AuraKitchen
                     SpawnAdditionalChef(i, chefName);
                 }
             }
+            // OnlineCoop: Handled dynamically by AuraOnlineMultiplayerManager to mirror joined players only
         }
 
         private void SpawnAdditionalChef(int playerIndex, string chefName)

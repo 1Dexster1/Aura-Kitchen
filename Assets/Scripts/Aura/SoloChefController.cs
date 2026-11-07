@@ -32,6 +32,8 @@ namespace AuraKitchen
             Instance = this;
         }
 
+        private float assistantScanTimer = 0f;
+
         private void Update()
         {
             if (MultiplayerManager.Instance == null || MultiplayerManager.Instance.CurrentMode != MultiplayerManager.Mode.SoloSwitch)
@@ -45,10 +47,15 @@ namespace AuraKitchen
                 SwitchChef();
             }
 
-            // Optional Sous-Chef Assistant logic
+            // Optional Sous-Chef Assistant logic throttled to 4Hz to save CPU
             if (enableSousChefAI)
             {
-                UpdateSousChefAssistant();
+                assistantScanTimer += Time.deltaTime;
+                if (assistantScanTimer >= 0.25f)
+                {
+                    assistantScanTimer = 0f;
+                    UpdateSousChefAssistant();
+                }
             }
         }
 

@@ -96,7 +96,13 @@ public class GameEndUI : MonoBehaviour
         // Stars & Title
         string stars;
         string rankTitle;
-        if (plates >= 5)
+
+        if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
+        {
+            stars = "<color=#ffd700>★ ★ ★</color>";
+            rankTitle = AuraOnlineMultiplayerManager.Instance.GetChallengeWinnerSummary();
+        }
+        else if (plates >= 5)
         {
             stars = "<color=#ffd700>★ ★ ★</color>";
             rankTitle = "<color=#ffd700>👑 MASTER OF AURA (3-STAR CHEF)</color>";

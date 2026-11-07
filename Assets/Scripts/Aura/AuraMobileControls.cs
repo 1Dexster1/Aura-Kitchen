@@ -51,6 +51,16 @@ namespace AuraKitchen
             QualitySettings.vSyncCount = 0;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
+#if UNITY_ANDROID || UNITY_IOS
+            // Cap mobile resolution to 720p to eliminate GPU fillrate lag on high-DPI screens
+            if (Screen.height > 720)
+            {
+                int targetHeight = 720;
+                int targetWidth = (int)(targetHeight * ((float)Screen.width / Screen.height));
+                Screen.SetResolution(targetWidth, targetHeight, true);
+            }
+#endif
+
             if (FindObjectOfType<EventSystem>() == null)
             {
                 GameObject esObj = new GameObject("Aura_EventSystem");

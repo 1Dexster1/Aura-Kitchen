@@ -95,6 +95,12 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraGameMechanics>();
             }
 
+            // 7. Aura Online Multiplayer Manager (Real-time network sync & challenge scoreboard)
+            if (Object.FindObjectOfType<AuraOnlineMultiplayerManager>() == null)
+            {
+                auraRoot.AddComponent<AuraOnlineMultiplayerManager>();
+            }
+
             // Double check Mobile Controls are active and ready in GameScene
             if (AuraMobileControls.Instance != null)
             {
