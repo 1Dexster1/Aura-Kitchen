@@ -107,6 +107,15 @@ namespace AuraKitchen
             }
         }
 
+        private static Shader GetDefaultShader()
+        {
+            Shader s = Shader.Find("Universal Render Pipeline/Lit");
+            if (s == null) s = Shader.Find("Standard");
+            if (s == null) s = Shader.Find("Mobile/Diffuse");
+            if (s == null) s = Shader.Find("Diffuse");
+            return s;
+        }
+
         private SquadSlotData CreatePodiumStation(int slot)
         {
             SquadSlotData data = new SquadSlotData();
@@ -126,7 +135,7 @@ namespace AuraKitchen
             Destroy(pedestal.GetComponent<Collider>());
 
             Renderer pRend = pedestal.GetComponent<Renderer>();
-            Material pMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            Material pMat = new Material(GetDefaultShader());
             pMat.color = new Color(0.12f, 0.12f, 0.14f);
             if (pMat.HasProperty("_BaseColor")) pMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.14f));
             if (pMat.HasProperty("_Metallic")) pMat.SetFloat("_Metallic", 0.6f);
@@ -143,7 +152,7 @@ namespace AuraKitchen
             Destroy(neonRing.GetComponent<Collider>());
 
             Renderer nRend = neonRing.GetComponent<Renderer>();
-            Material nMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            Material nMat = new Material(GetDefaultShader());
             Color neonColor = SlotNeonColors[slot];
             nMat.color = neonColor;
             if (nMat.HasProperty("_BaseColor")) nMat.SetColor("_BaseColor", neonColor);
@@ -226,7 +235,9 @@ namespace AuraKitchen
                 if (r.gameObject.name == "Head" || r.gameObject.name == "Body" ||
                     (r.sharedMaterial != null && r.sharedMaterial.name.Contains("PlayerBody")))
                 {
-                    Material instMat = new Material(r.sharedMaterial != null ? r.sharedMaterial : (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard")));
+                    Material instMat = r.sharedMaterial != null
+                        ? new Material(r.sharedMaterial)
+                        : new Material(GetDefaultShader());
                     instMat.color = SlotNeonColors[slot];
                     if (instMat.HasProperty("_BaseColor")) instMat.SetColor("_BaseColor", SlotNeonColors[slot]);
                     if (instMat.HasProperty("_Color")) instMat.SetColor("_Color", SlotNeonColors[slot]);
