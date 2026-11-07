@@ -189,18 +189,26 @@ namespace AuraKitchen
 
         private void HideMainMenu2DButtons(bool hide)
         {
-            GameObject mmCanvas = GameObject.Find("Canvas");
-            if (mmCanvas != null && SceneManager.GetActiveScene().name == SceneSwitcher.Scene.MainMenu.ToString())
+            if (MainMenuUI.Instance != null)
             {
-                // Find main buttons container or deactivate
-                Transform startBtn = mmCanvas.transform.Find("GameStartButton");
-                if (startBtn != null) startBtn.gameObject.SetActive(!hide);
-
-                Transform quitBtn = mmCanvas.transform.Find("GameQuitButton");
-                if (quitBtn != null) quitBtn.gameObject.SetActive(!hide);
-
-                Transform mpBtn = mmCanvas.transform.Find("GameMultiplayerButton");
-                if (mpBtn != null) mpBtn.gameObject.SetActive(!hide);
+                MainMenuUI.Instance.gameObject.SetActive(!hide);
+            }
+            else
+            {
+                MainMenuUI mmUI = FindObjectOfType<MainMenuUI>(true);
+                if (mmUI != null)
+                {
+                    mmUI.gameObject.SetActive(!hide);
+                }
+                else
+                {
+                    GameObject mmCanvas = GameObject.Find("Canvas");
+                    if (mmCanvas != null && SceneManager.GetActiveScene().name == SceneSwitcher.Scene.MainMenu.ToString())
+                    {
+                        Transform mmObj = mmCanvas.transform.Find("MainMenuUI");
+                        if (mmObj != null) mmObj.gameObject.SetActive(!hide);
+                    }
+                }
             }
         }
 
@@ -285,7 +293,7 @@ namespace AuraKitchen
                 new Vector2(-60, 12), new Vector2(240, 26), Color.white);
             headerChefNameText.alignment = TextAlignmentOptions.Left;
 
-            CreateTMPText(hudTopLeftBar, "<color=#2ecc71>● ONLINE</color> | aura.dexster.site", 13, FontStyles.Normal,
+            CreateTMPText(hudTopLeftBar, "<color=#2ecc71>ONLINE</color> | aura.dexster.site", 13, FontStyles.Normal,
                 new Vector2(-60, -14), new Vector2(240, 20), new Color(0.75f, 0.75f, 0.75f, 1f)).alignment = TextAlignmentOptions.Left;
 
             CreateStyledButton(hudTopLeftBar, "Btn_ChangeName", "EDIT", new Vector2(135, 0), new Vector2(76, 44),
@@ -348,7 +356,7 @@ namespace AuraKitchen
             hcr.anchorMax = Vector2.one;
             hcr.sizeDelta = Vector2.zero;
 
-            hostStartGameBtn = CreateStyledButton(hostViewControls, "Btn_StartGame", "START SHIFT ▶", Vector2.zero, new Vector2(400, 84),
+            hostStartGameBtn = CreateStyledButton(hostViewControls, "Btn_StartGame", "START SHIFT", Vector2.zero, new Vector2(400, 84),
                 new Color(0.12f, 0.65f, 0.28f, 0.98f), Color.white, OnHostStartClicked, 26).GetComponent<Button>();
 
             Outline startOutline = hostStartGameBtn.gameObject.AddComponent<Outline>();
@@ -386,7 +394,7 @@ namespace AuraKitchen
             blRt.anchoredPosition = new Vector2(36, 36);
             blRt.sizeDelta = new Vector2(260, 80);
 
-            CreateStyledButton(hudBottomLeftArea, "Btn_BackMenu", "◀ BACK TO MENU", Vector2.zero, new Vector2(240, 64),
+            CreateStyledButton(hudBottomLeftArea, "Btn_BackMenu", "BACK TO MENU", Vector2.zero, new Vector2(240, 64),
                 new Color(0.26f, 0.18f, 0.18f, 0.92f), Color.white, CloseMultiplayerToMenu, 17);
 
             // 6. FLOATING JOIN DIALOG (Only shown when Tab == "join")

@@ -11,10 +11,12 @@ namespace AuraKitchen
         public static Aura3DLobbyShowcase Instance { get; private set; }
 
         [Header("Squad Stage Config")]
-        [SerializeField] private Vector3 stageCenter = new Vector3(0.5f, 0f, 0f);
+        [SerializeField] private Vector3 stageCenter = new Vector3(0.95f, 0f, -4.2f);
+        private const float BaseYRotation = 18f;
 
         private GameObject stageRootObj;
         private SquadSlotData[] squadSlots = new SquadSlotData[4];
+        private List<GameObject> originalSceneDucks = new List<GameObject>();
 
         private float targetRotationY = 0f;
         private float currentRotationY = 0f;
@@ -37,7 +39,7 @@ namespace AuraKitchen
 
         public static readonly Color[] SlotNeonColors = new Color[]
         {
-            new Color(1.0f, 0.22f, 0.22f, 1f), // P1: Ruby Red
+            new Color(1.0f, 0.22f, 0.22f, 1f),  // P1: Ruby Red
             new Color(0.20f, 0.55f, 1.0f, 1f),  // P2: Sapphire Blue
             new Color(0.18f, 0.85f, 0.35f, 1f), // P3: Emerald Green
             new Color(1.0f, 0.78f, 0.15f, 1f)   // P4: Amber Gold
@@ -46,18 +48,18 @@ namespace AuraKitchen
         // Battle-Royale V-Formation offsets (relative to stageCenter)
         private static readonly Vector3[] SlotPositions = new Vector3[]
         {
-            new Vector3(-1.15f, 0f, -0.3f), // Slot 0: Host / Center-Left Front
-            new Vector3(1.15f, 0f, -0.3f),  // Slot 1: P2 / Center-Right Front
-            new Vector3(-2.9f, 0f, 0.7f),   // Slot 2: P3 / Left Flank
-            new Vector3(2.9f, 0f, 0.7f)     // Slot 3: P4 / Right Flank
+            new Vector3(-0.95f, 0f, 0f),    // Slot 0: Host / Center-Left Front
+            new Vector3(0.95f, 0f, 0f),     // Slot 1: P2 / Center-Right Front
+            new Vector3(-2.25f, 0f, 0.85f), // Slot 2: P3 / Left Flank
+            new Vector3(2.25f, 0f, 0.85f)   // Slot 3: P4 / Right Flank
         };
 
         private static readonly float[] SlotYRotations = new float[]
         {
-            12f,   // Slot 0 angles slightly toward center
-            -12f,  // Slot 1 angles slightly toward center
-            25f,   // Slot 2 angles inward
-            -25f   // Slot 3 angles inward
+            10f,   // Slot 0 angles slightly inward
+            -10f,  // Slot 1 angles slightly inward
+            22f,   // Slot 2 angles inward
+            -22f   // Slot 3 angles inward
         };
 
         private void Awake()
@@ -70,7 +72,6 @@ namespace AuraKitchen
             Instance = this;
 
             BuildSquadStage();
-            HideOldMainMenuDucks();
         }
 
         private void Start()
@@ -81,26 +82,34 @@ namespace AuraKitchen
             UpdateSlot(1, false, "[OPEN]", false);
             UpdateSlot(2, false, "[OPEN]", false);
             UpdateSlot(3, false, "[OPEN]", false);
-        }
 
-        private void HideOldMainMenuDucks()
-        {
-            // Find existing PlayerVisual instances in the scene and disable them so only the squad stage is visible
-            GameObject[] allObjects = FindObjectsOfType<GameObject>();
-            foreach (var go in allObjects)
-            {
-                if (go.name.StartsWith("PlayerVisual") && (stageRootObj == null || !go.transform.IsChildOf(stageRootObj.transform)))
-                {
-                    go.SetActive(false);
-                }
-            }
+            // Initially hidden until user enters Multiplayer
+            SetStageVisible(false);
         }
 
         private void BuildSquadStage()
         {
             stageRootObj = new GameObject("Aura_3D_Squad_Stage");
             stageRootObj.transform.position = stageCenter;
+            stageRootObj.transform.rotation = Quaternion.Euler(0, BaseYRotation, 0);
 
+            // 1. Dark Championship Stage Floor Platform
+            GameObject arenaBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            arenaBase.name = "Arena_Floor_Base";
+            arenaBase.transform.SetParent(stageRootObj.transform, false);
+            arenaBase.transform.localPosition = new Vector3(0, 0.015f, 0.4f);
+            arenaBase.transform.localScale = new Vector3(6.8f, 0.015f, 4.8f);
+            Destroy(arenaBase.GetComponent<Collider>());
+
+            Renderer aRend = arenaBase.GetComponent<Renderer>();
+            Material aMat = new Material(GetDefaultShader());
+            aMat.color = new Color(0.08f, 0.08f, 0.10f);
+            if (aMat.HasProperty("_BaseColor")) aMat.SetColor("_BaseColor", new Color(0.08f, 0.08f, 0.10f));
+            if (aMat.HasProperty("_Metallic")) aMat.SetFloat("_Metallic", 0.5f);
+            if (aMat.HasProperty("_Smoothness")) aMat.SetFloat("_Smoothness", 0.7f);
+            aRend.material = aMat;
+
+            // 2. Build 4 Pedestals
             for (int i = 0; i < 4; i++)
             {
                 squadSlots[i] = CreatePodiumStation(i);
@@ -130,8 +139,8 @@ namespace AuraKitchen
             GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pedestal.name = "Pedestal_Base";
             pedestal.transform.SetParent(stationRoot.transform, false);
-            pedestal.transform.localPosition = new Vector3(0, 0.04f, 0);
-            pedestal.transform.localScale = new Vector3(1.65f, 0.04f, 1.65f);
+            pedestal.transform.localPosition = new Vector3(0, 0.06f, 0);
+            pedestal.transform.localScale = new Vector3(1.4f, 0.06f, 1.4f);
             Destroy(pedestal.GetComponent<Collider>());
 
             Renderer pRend = pedestal.GetComponent<Renderer>();
@@ -147,8 +156,8 @@ namespace AuraKitchen
             GameObject neonRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             neonRing.name = "Neon_Ring";
             neonRing.transform.SetParent(stationRoot.transform, false);
-            neonRing.transform.localPosition = new Vector3(0, 0.082f, 0);
-            neonRing.transform.localScale = new Vector3(1.72f, 0.008f, 1.72f);
+            neonRing.transform.localPosition = new Vector3(0, 0.125f, 0);
+            neonRing.transform.localScale = new Vector3(1.46f, 0.012f, 1.46f);
             Destroy(neonRing.GetComponent<Collider>());
 
             Renderer nRend = neonRing.GetComponent<Renderer>();
@@ -188,15 +197,15 @@ namespace AuraKitchen
             // 5. 3D Floating Nameplate Above Head
             GameObject tagObj = new GameObject("Overhead_3D_Tag");
             tagObj.transform.SetParent(stationRoot.transform, false);
-            tagObj.transform.localPosition = new Vector3(0, 2.35f, 0);
+            tagObj.transform.localPosition = new Vector3(0, 2.3f, 0);
 
             TextMeshPro tmp = tagObj.AddComponent<TextMeshPro>();
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 4.8f;
+            tmp.fontSize = 3.6f;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
             tmp.outlineColor = new Color32(0, 0, 0, 255);
-            tmp.rectTransform.sizeDelta = new Vector2(6f, 2.2f);
+            tmp.rectTransform.sizeDelta = new Vector2(4.5f, 1.8f);
             data.overhead3DText = tmp;
 
             return data;
@@ -225,8 +234,9 @@ namespace AuraKitchen
             if (chefObj == null) return null;
 
             chefObj.name = $"ChefModel_P{slot + 1}";
-            chefObj.transform.localPosition = new Vector3(0, 0.08f, 0);
+            chefObj.transform.localPosition = new Vector3(0, 0.13f, 0);
             chefObj.transform.localRotation = Quaternion.identity;
+            chefObj.transform.localScale = Vector3.one * 1.25f;
 
             MeshRenderer[] renderers = chefObj.GetComponentsInChildren<MeshRenderer>(true);
             foreach (var r in renderers)
@@ -267,19 +277,19 @@ namespace AuraKitchen
 
                 if (data.overhead3DText != null)
                 {
-                    string readyStr = isReady ? "<color=#44ff66>[READY]</color>" : "<color=#ffaa00>[WAITING]</color>";
-                    data.overhead3DText.text = $"<size=75%><color=#{colorHex}>{slotRoles[slot]}</color></size>\n<b>{name}</b>\n<size=70%>{readyStr}</size>";
+                    string readyStr = isReady ? "<color=#44ff66>READY</color>" : "<color=#ffaa00>WAITING</color>";
+                    data.overhead3DText.text = $"<size=75%><color=#{colorHex}>{slotRoles[slot]}</color></size>\n<size=105%><b>{name.ToUpper()}</b></size>\n<size=75%>{readyStr}</size>";
                 }
             }
             else
             {
-                // Slot is open: hide chef model, show invite marker
+                // Slot is open: hide chef model, show clean invite marker
                 if (data.chefModelObj != null) data.chefModelObj.SetActive(false);
                 if (data.spotLight != null) data.spotLight.intensity = 0.8f;
 
                 if (data.overhead3DText != null)
                 {
-                    data.overhead3DText.text = $"<size=75%><color=#777777>{slotRoles[slot]}</color></size>\n<size=90%><color=#ffd700>+ INVITE</color></size>\n<size=65%><color=#555555>[OPEN SLOT]</color></size>";
+                    data.overhead3DText.text = $"<size=75%><color=#777777>{slotRoles[slot]}</color></size>\n<size=85%><color=#ffd700>+ INVITE</color></size>";
                 }
             }
         }
@@ -289,6 +299,37 @@ namespace AuraKitchen
             if (stageRootObj != null)
             {
                 stageRootObj.SetActive(visible);
+            }
+
+            CacheAndToggleOriginalDucks(!visible);
+        }
+
+        private void CacheAndToggleOriginalDucks(bool show)
+        {
+            try
+            {
+                if (originalSceneDucks.Count == 0)
+                {
+                    foreach (var rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+                    {
+                        foreach (var t in rootGo.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (t.name.StartsWith("PlayerVisual") && (stageRootObj == null || !t.IsChildOf(stageRootObj.transform)))
+                            {
+                                originalSceneDucks.Add(t.gameObject);
+                            }
+                        }
+                    }
+                }
+
+                foreach (var duck in originalSceneDucks)
+                {
+                    if (duck != null) duck.SetActive(show);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Aura3D] CacheAndToggleOriginalDucks exception: {ex.Message}");
             }
         }
 
@@ -376,7 +417,7 @@ namespace AuraKitchen
 
             // Interpolate rotation
             currentRotationY = Mathf.Lerp(currentRotationY, targetRotationY, Time.deltaTime * 12f);
-            stageRootObj.transform.rotation = Quaternion.Euler(0, currentRotationY, 0);
+            stageRootObj.transform.rotation = Quaternion.Euler(0, BaseYRotation + currentRotationY, 0);
         }
     }
 

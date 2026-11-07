@@ -7,12 +7,15 @@ using TMPro;
 
 public class MainMenuUI : MonoBehaviour
 {
+    public static MainMenuUI Instance { get; private set; }
+
     [SerializeField] private Button gameStartButton;
     [SerializeField] private Button gameQuitButton;
     [SerializeField] private Button gameMultiplayerButton;
 
     private void Awake()
     {
+        Instance = this;
         if (gameStartButton != null)
         {
             gameStartButton.onClick.AddListener(() =>

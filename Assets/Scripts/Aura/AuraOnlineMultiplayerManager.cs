@@ -404,7 +404,7 @@ namespace AuraKitchen
             {
                 if (i == MySlotIndex)
                 {
-                    sb.AppendLine($"<color={colors[i]}>▶ {shortNames[i]} (YOU): <b>{myDishes}</b> dishes ({myScore:N0} pts)</color>");
+                    sb.AppendLine($"<color={colors[i]}>[YOU] {shortNames[i]}: <b>{myDishes}</b> dishes ({myScore:N0} pts)</color>");
                 }
                 else if (remoteChefs.TryGetValue(i, out var data))
                 {
