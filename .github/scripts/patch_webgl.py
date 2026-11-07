@@ -17,19 +17,38 @@ def patch_webgl():
     # 2. Prevent blocking browser alert on errors
     content = content.replace('alert(message);', 'console.error("[Unity WebGL] Startup error:", message);')
 
-    # 3. Add ScreenOrientation safety wrapper
+    # 3. Add ScreenOrientation & Runtime Error Safety Wrapper
     patch = '''<script>
-      // Screen Orientation Safety Wrapper
-      if (window.screen && window.screen.orientation) {
+      // Comprehensive WebGL Error & ScreenOrientation Safety Wrapper
+      (function() {
+        var _origAlert = window.alert;
+        window.alert = function(msg) {
+          console.warn("[Unity WebGL Suppressed Alert]:", msg);
+        };
+
+        if (window.screen && window.screen.orientation) {
+          try {
+            var _origScreenAdd = window.screen.orientation.addEventListener;
+            window.screen.orientation.addEventListener = function(t, fn, o) {
+              return _origScreenAdd.call(this, t, function(e) {
+                try { fn(e); } catch (err) { console.warn('Caught WebGL screen.orientation error:', err); }
+              }, o);
+            };
+          } catch(e) {}
+        }
+
         try {
-          var _origAdd = window.screen.orientation.addEventListener;
-          window.screen.orientation.addEventListener = function(t, fn, o) {
-            return _origAdd.call(this, t, function(e) {
-              try { fn(e); } catch (err) { console.warn('Caught WebGL orientation event error:', err); }
-            }, o);
+          var _origWinAdd = window.addEventListener;
+          window.addEventListener = function(type, listener, options) {
+            if (type === 'orientationchange' || type === 'resize') {
+              return _origWinAdd.call(this, type, function(evt) {
+                try { listener(evt); } catch(err) { console.warn('Caught WebGL window.' + type + ' error:', err); }
+              }, options);
+            }
+            return _origWinAdd.call(this, type, listener, options);
           };
         } catch(e) {}
-      }
+      })();
 '''
     if '<script>' in content:
         content = content.replace('<script>', patch, 1)

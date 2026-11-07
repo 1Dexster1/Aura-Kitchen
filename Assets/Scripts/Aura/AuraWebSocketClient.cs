@@ -29,7 +29,7 @@ namespace AuraKitchen
 
         [Header("Backend Connection")]
         [SerializeField] private string serverUrl = "ws://panel.sharebotdex.xyz:30015";
-        [SerializeField] private bool autoConnect = true;
+        [SerializeField] private bool autoConnect = false;
 
         private ClientWebSocket webSocket;
         private CancellationTokenSource cancellationTokenSource;

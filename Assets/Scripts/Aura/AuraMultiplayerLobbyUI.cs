@@ -218,12 +218,15 @@ namespace AuraKitchen
             CreateTMPText(hostViewObj, "ROOM CODE:", 19, FontStyles.Bold,
                 new Vector2(0, 145), new Vector2(700, 32), new Color(0.90f, 0.90f, 0.90f));
 
-            // Code Display & Copy Button
-            GameObject codeCard = CreatePanel(hostViewObj, "Code_Card", new Vector2(-110, 75), new Vector2(300, 84), new Color(0.13f, 0.13f, 0.13f));
-            hostRoomCodeText = CreateTMPText(codeCard, "AUR4", 44, FontStyles.Bold, Vector2.zero, new Vector2(300, 84), new Color(1.0f, 0.85f, 0.3f));
+            // Code Display, Copy Button & New Room Button
+            GameObject codeCard = CreatePanel(hostViewObj, "Code_Card", new Vector2(-150, 75), new Vector2(280, 84), new Color(0.13f, 0.13f, 0.13f));
+            hostRoomCodeText = CreateTMPText(codeCard, "AUR4", 44, FontStyles.Bold, Vector2.zero, new Vector2(280, 84), new Color(1.0f, 0.85f, 0.3f));
 
-            CreateStyledButton(hostViewObj, "Btn_Copy", "COPY CODE", new Vector2(130, 75), new Vector2(180, 84),
-                new Color(0.32f, 0.32f, 0.32f), Color.white, CopyRoomCode, 20);
+            CreateStyledButton(hostViewObj, "Btn_Copy", "COPY CODE", new Vector2(40, 75), new Vector2(150, 84),
+                new Color(0.32f, 0.32f, 0.32f), Color.white, CopyRoomCode, 18);
+
+            CreateStyledButton(hostViewObj, "Btn_NewRoom", "NEW CODE", new Vector2(200, 75), new Vector2(150, 84),
+                new Color(0.28f, 0.28f, 0.38f), Color.white, () => GenerateNewHostRoom(), 18);
 
             // Chef Slots List
             CreateTMPText(hostViewObj, "CONNECTED CHEFS (1/4):", 19, FontStyles.Bold,
@@ -322,7 +325,16 @@ namespace AuraKitchen
 
             if (tabName == "host")
             {
-                GenerateNewHostRoom();
+                if (string.IsNullOrEmpty(activeRoomCode) || !isHost)
+                {
+                    GenerateNewHostRoom();
+                }
+                else
+                {
+                    if (hostRoomCodeText != null) hostRoomCodeText.text = activeRoomCode;
+                    if (roomPollCoroutine != null) StopCoroutine(roomPollCoroutine);
+                    roomPollCoroutine = StartCoroutine(HostPollRoomState());
+                }
             }
         }
 
@@ -402,7 +414,21 @@ namespace AuraKitchen
                 {
                     if (joinStatusText != null)
                     {
-                        joinStatusText.text = "Could not join room. Check code or server connection.";
+                        string errMsg = "Could not join room. Check code or server connection.";
+                        if (!string.IsNullOrEmpty(response) && response.Contains("\"error\":"))
+                        {
+                            try
+                            {
+                                int sIdx = response.IndexOf("\"error\":\"") + 9;
+                                int eIdx = response.IndexOf("\"", sIdx);
+                                if (sIdx >= 9 && eIdx > sIdx)
+                                {
+                                    errMsg = response.Substring(sIdx, eIdx - sIdx);
+                                }
+                            }
+                            catch { }
+                        }
+                        joinStatusText.text = errMsg;
                     }
                     return;
                 }
@@ -564,7 +590,10 @@ namespace AuraKitchen
                 yield return req.SendWebRequest();
 
                 bool ok = req.result == UnityWebRequest.Result.Success;
-                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
+                    ? req.downloadHandler.text
+                    : req.error;
+                onComplete?.Invoke(ok, respText);
             }
         }
 
@@ -576,7 +605,10 @@ namespace AuraKitchen
                 req.timeout = 5;
                 yield return req.SendWebRequest();
                 bool ok = req.result == UnityWebRequest.Result.Success;
-                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
+                    ? req.downloadHandler.text
+                    : req.error;
+                onComplete?.Invoke(ok, respText);
             }
         }
 
@@ -592,7 +624,10 @@ namespace AuraKitchen
                 req.SetRequestHeader("Content-Type", "application/json");
                 yield return req.SendWebRequest();
                 bool ok = req.result == UnityWebRequest.Result.Success;
-                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
+                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
+                    ? req.downloadHandler.text
+                    : req.error;
+                onComplete?.Invoke(ok, respText);
             }
         }
 

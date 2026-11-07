@@ -82,14 +82,15 @@ public class MainMenuUI : MonoBehaviour
     {
         if (t == null) return;
         t.enableWordWrapping = false;
+        t.overflowMode = TextOverflowModes.Ellipsis;
         t.enableAutoSizing = true;
-        t.fontSizeMin = 22;
+        t.fontSizeMin = 18;
         t.fontSizeMax = 44;
         t.alignment = TextAlignmentOptions.Center;
         RectTransform tr = t.rectTransform;
         tr.anchorMin = Vector2.zero;
         tr.anchorMax = Vector2.one;
-        tr.offsetMin = Vector2.zero;
-        tr.offsetMax = Vector2.zero;
+        tr.offsetMin = new Vector2(10, 0);
+        tr.offsetMax = new Vector2(-10, 0);
     }
 }
