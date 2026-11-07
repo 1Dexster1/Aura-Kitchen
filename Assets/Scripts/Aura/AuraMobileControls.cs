@@ -74,13 +74,18 @@ namespace AuraKitchen
             ResetMovement();
         }
 
+        public void EnsureControlsVisible(bool visible)
+        {
+            if (mobileCanvasObj != null)
+            {
+                mobileCanvasObj.SetActive(visible);
+            }
+        }
+
         private void UpdateVisibility(string sceneName)
         {
             bool isGame = sceneName == SceneSwitcher.Scene.GameScene.ToString();
-            if (mobileCanvasObj != null)
-            {
-                mobileCanvasObj.SetActive(isGame);
-            }
+            EnsureControlsVisible(isGame);
         }
 
         private void CreateMobileCanvas()

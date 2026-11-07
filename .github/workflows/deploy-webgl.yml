@@ -62,8 +62,10 @@ jobs:
       - name: Output Unity Log on Failure
         if: failure()
         run: |
+          echo "=== Displaying Compiler Errors ==="
+          find / -name "Editor.log" 2>/dev/null -exec grep -B 2 -A 5 "error CS" {} + || true
           echo "=== Displaying Unity Editor Logs ==="
-          find / -name "Editor.log" 2>/dev/null -exec tail -n 100 {} + || true
+          find / -name "Editor.log" 2>/dev/null -exec tail -n 250 {} + || true
 
       - name: Prepare WebGL for GitHub Pages
         run: |
