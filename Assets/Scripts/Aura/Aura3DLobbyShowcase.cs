@@ -37,13 +37,7 @@ namespace AuraKitchen
             public string chefName;
         }
 
-        public static readonly Color[] SlotNeonColors = new Color[]
-        {
-            new Color(1.0f, 0.22f, 0.22f, 1f),  // P1: Ruby Red
-            new Color(0.20f, 0.55f, 1.0f, 1f),  // P2: Sapphire Blue
-            new Color(0.18f, 0.85f, 0.35f, 1f), // P3: Emerald Green
-            new Color(1.0f, 0.78f, 0.15f, 1f)   // P4: Amber Gold
-        };
+        public static readonly Color[] SlotNeonColors = AuraTheme.ChefColors;
 
         // Battle-Royale V-Formation offsets (relative to stageCenter)
         private static readonly Vector3[] SlotPositions = new Vector3[]
@@ -109,11 +103,50 @@ namespace AuraKitchen
             if (aMat.HasProperty("_Smoothness")) aMat.SetFloat("_Smoothness", 0.7f);
             aRend.material = aMat;
 
+            // Soft contact shadow: removes the hard "sticker" edge of the platform on bright floors
+            GameObject shadowObj = new GameObject("Arena_Soft_Shadow");
+            shadowObj.transform.SetParent(stageRootObj.transform, false);
+            shadowObj.transform.localPosition = new Vector3(0f, 0.006f, 0.4f);
+            shadowObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            shadowObj.transform.localScale = new Vector3(11f, 8f, 1f);
+            SpriteRenderer shadowRend = shadowObj.AddComponent<SpriteRenderer>();
+            shadowRend.sprite = MakeSoftDisc();
+            shadowRend.color = new Color(0.02f, 0.04f, 0.1f, 0.55f);
+            shadowRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            shadowRend.receiveShadows = false;
+
             // 2. Build 4 Pedestals
             for (int i = 0; i < 4; i++)
             {
                 squadSlots[i] = CreatePodiumStation(i);
             }
+        }
+
+        private static Sprite softDisc;
+
+        private static Sprite MakeSoftDisc()
+        {
+            if (softDisc != null) return softDisc;
+            const int n = 128;
+            Texture2D tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            Color32[] px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x / (n - 1f)) * 2f - 1f;
+                    float dy = (y / (n - 1f)) * 2f - 1f;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = 1f - Mathf.SmoothStep(0.25f, 1f, d);
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            softDisc = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n / 2f);
+            return softDisc;
         }
 
         private static Shader GetDefaultShader()
@@ -194,18 +227,21 @@ namespace AuraKitchen
                 data.idleAnimator.Initialize(slot);
             }
 
-            // 5. 3D Floating Nameplate Above Head
+            // 5. 3D Floating Nameplate Above Head (compact: 3 short lines, well above the head)
             GameObject tagObj = new GameObject("Overhead_3D_Tag");
             tagObj.transform.SetParent(stationRoot.transform, false);
-            tagObj.transform.localPosition = new Vector3(0, 2.3f, 0);
+            tagObj.transform.localPosition = new Vector3(0, 2.5f, 0);
 
             TextMeshPro tmp = tagObj.AddComponent<TextMeshPro>();
+            if (AuraTheme.Font != null) tmp.font = AuraTheme.Font;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 3.6f;
+            tmp.fontSize = 1.7f;
             tmp.fontStyle = FontStyles.Bold;
-            tmp.outlineWidth = 0.25f;
-            tmp.outlineColor = new Color32(0, 0, 0, 255);
-            tmp.rectTransform.sizeDelta = new Vector2(4.5f, 1.8f);
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Overflow;
+            tmp.outlineWidth = 0.22f;
+            tmp.outlineColor = new Color32(6, 10, 22, 255);
+            tmp.rectTransform.sizeDelta = new Vector2(2.2f, 0.9f);
             data.overhead3DText = tmp;
 
             return data;
@@ -267,8 +303,9 @@ namespace AuraKitchen
             data.isOccupied = occupied;
             data.chefName = name;
 
-            string[] slotRoles = { "[HOST - P1]", "[P2 CHEF]", "[P3 CHEF]", "[P4 CHEF]" };
+            string[] slotRoles = { "HOST", "P2", "P3", "P4" };
             string colorHex = ColorUtility.ToHtmlStringRGB(SlotNeonColors[slot]);
+            string dim = ColorUtility.ToHtmlStringRGB(AuraTheme.TextSecondary);
 
             if (occupied)
             {
@@ -277,21 +314,44 @@ namespace AuraKitchen
 
                 if (data.overhead3DText != null)
                 {
-                    string readyStr = isReady ? "<color=#44ff66>READY</color>" : "<color=#ffaa00>WAITING</color>";
-                    data.overhead3DText.text = $"<size=75%><color=#{colorHex}>{slotRoles[slot]}</color></size>\n<size=105%><b>{name.ToUpper()}</b></size>\n<size=75%>{readyStr}</size>";
+                    string shown = ShortName(string.IsNullOrEmpty(name) ? AuraTheme.ChefName(slot) : name);
+                    string readyStr = isReady
+                        ? "<color=#" + ColorUtility.ToHtmlStringRGB(AuraTheme.Success) + ">READY</color>"
+                        : "<color=#" + ColorUtility.ToHtmlStringRGB(AuraTheme.Amber) + ">WAITING</color>";
+                    data.overhead3DText.text =
+                        "<size=62%><color=#" + colorHex + ">" + slotRoles[slot] + "</color></size>\n" +
+                        "<size=100%>" + shown + "</size>\n" +
+                        "<size=62%>" + readyStr + "</size>";
                 }
             }
             else
             {
-                // Slot is open: hide chef model, show clean invite marker
+                // Slot is open: hide chef model, show a quiet invite marker
                 if (data.chefModelObj != null) data.chefModelObj.SetActive(false);
                 if (data.spotLight != null) data.spotLight.intensity = 0.8f;
 
                 if (data.overhead3DText != null)
                 {
-                    data.overhead3DText.text = $"<size=75%><color=#777777>{slotRoles[slot]}</color></size>\n<size=85%><color=#ffd700>+ INVITE</color></size>";
+                    data.overhead3DText.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                    data.overhead3DText.text =
+                        "<size=62%><color=#" + dim + ">" + slotRoles[slot] + "</color></size>\n" +
+                        "<size=78%><color=#" + ColorUtility.ToHtmlStringRGB(AuraTheme.Amber) + ">+ INVITE</color></size>";
                 }
             }
+
+            if (occupied && data.overhead3DText != null)
+            {
+                data.overhead3DText.transform.localPosition = new Vector3(0f, 2.5f, 0f);
+            }
+        }
+
+        private static string ShortName(string raw)
+        {
+            string n = (raw ?? "").Trim();
+            // names come from other players: strip rich-text tags so they can't restyle the label
+            n = n.Replace("<", "").Replace(">", "");
+            if (n.Length > 11) n = n.Substring(0, 10) + "\u2026";
+            return n.ToUpperInvariant();
         }
 
         public void SetStageVisible(bool visible)
