@@ -278,7 +278,7 @@ namespace AuraKitchen
             auraRushBannerObj = AuraTheme.CreatePanel(mechanicsCanvasObj.transform, "AuraRushBanner",
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0, -68), new Vector2(700, 40),
-                new Color32(0x2A, 0x1E, 0x08, 0xEB), AuraTheme.Amber, false);
+                AuraTheme.PanelFill, AuraTheme.Amber, false);
             auraRushBannerObj.GetComponent<Image>().raycastTarget = false;
             AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(-322, 0), 24f, AuraTheme.Ember);
             AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(322, 0), 24f, AuraTheme.Ember);

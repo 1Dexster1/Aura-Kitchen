@@ -370,7 +370,7 @@ namespace AuraKitchen
             guestWaitingControls.SetActive(false);
 
             GameObject pulsePill = CreateGlassPanel(guestWaitingControls, "Pill_Waiting", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420, 84), new Color32(0x2A, 0x1E, 0x08, 0xEB));
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420, 84), AuraTheme.PanelFill);
 
 
             guestWaitingStatusText = CreateTMPText(pulsePill, "WAITING FOR HOST TO START...", 19, FontStyles.Bold,
@@ -445,9 +445,10 @@ namespace AuraKitchen
             Image ringImg = ringObj.AddComponent<Image>();
             ringImg.sprite = AuraTheme.RoundedRing;
             ringImg.type = Image.Type.Sliced;
-            ringImg.color = AuraTheme.StrokeSoft;
+            ringImg.color = AuraTheme.Stroke;
             ringImg.raycastTarget = false;
 
+            AuraTheme.AddHardShadow(p);
             return p;
         }
 
@@ -578,12 +579,9 @@ namespace AuraKitchen
             if (guestWaitingControls != null) guestWaitingControls.SetActive(tabName == "guest_waiting");
             if (hudTopRightRoomBar != null) hudTopRightRoomBar.SetActive(tabName == "host" || tabName == "guest_waiting");
 
-            Color activeBg = new Color32(0x12, 0x3A, 0x5C, 0xF5);
-            Color inactiveBg = new Color32(0x14, 0x1D, 0x30, 0xD9);
-
-            SetButtonTabColor(tabHostBtn, tabName == "host" ? activeBg : inactiveBg);
-            SetButtonTabColor(tabJoinBtn, (tabName == "join" || tabName == "guest_waiting") ? activeBg : inactiveBg);
-            SetButtonTabColor(tabSoloBtn, tabName == "solo" ? activeBg : inactiveBg);
+            SetTabActive(tabHostBtn, tabName == "host");
+            SetTabActive(tabJoinBtn, tabName == "join" || tabName == "guest_waiting");
+            SetTabActive(tabSoloBtn, tabName == "solo");
 
             if (tabName == "host")
             {
@@ -604,11 +602,25 @@ namespace AuraKitchen
             }
         }
 
-        private void SetButtonTabColor(Button btn, Color c)
+        private void SetTabActive(Button btn, bool active)
         {
             if (btn == null) return;
+            AuraTheme.ButtonStyle style = active ? AuraTheme.ButtonStyle.Primary : AuraTheme.ButtonStyle.Ghost;
+            Color fill, text, accent;
+            AuraTheme.GetButtonColors(style, out fill, out text, out accent);
+
             Image img = btn.GetComponent<Image>();
-            if (img != null) img.color = c;
+            if (img != null) img.color = fill;
+
+            Transform ring = btn.transform.Find("Stroke");
+            if (ring != null)
+            {
+                Image ringImg = ring.GetComponent<Image>();
+                if (ringImg != null) ringImg.color = accent;
+            }
+
+            TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.color = text;
         }
 
         private static string RandomRoomCode()
@@ -971,10 +983,8 @@ namespace AuraKitchen
 
         private GameObject CreateStyledButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color bgColor, Color textColor, Action onClick = null, float fontSize = 18f)
         {
-            // Accent = a brightened version of the fill so every button keeps its identity inside the shared style.
-            Color accent = Color.Lerp(bgColor, Color.white, 0.45f);
-            accent.a = 0.85f;
-            return AuraTheme.CreateButton(parent.transform, name, label, pos, size, bgColor, textColor, accent, onClick, fontSize);
+            AuraTheme.ButtonStyle style = AuraTheme.StyleFromColors(bgColor, textColor);
+            return AuraTheme.CreateButton(parent.transform, name, label, pos, size, style, onClick, fontSize);
         }
 
         private TextMeshProUGUI CreateTMPText(GameObject parent, string text, float size, FontStyles style, Vector2 pos, Vector2 dimensions, Color color)

@@ -18,6 +18,14 @@ namespace AuraKitchen
         private SquadSlotData[] squadSlots = new SquadSlotData[4];
         private List<GameObject> originalSceneDucks = new List<GameObject>();
 
+        // Cartoon backdrop (dark floor, halftone dots, floating kitchen icons)
+        private GameObject backdropRoot;
+        private readonly List<Transform> backdropIcons = new List<Transform>();
+        private readonly List<Vector3> backdropIconBase = new List<Vector3>();
+        private CameraClearFlags savedClearFlags;
+        private Color savedBackground;
+        private bool cameraSaved;
+
         private float targetRotationY = 0f;
         private float currentRotationY = 0f;
         private bool isDragging = false;
@@ -103,10 +111,12 @@ namespace AuraKitchen
             if (aMat.HasProperty("_Smoothness")) aMat.SetFloat("_Smoothness", 0.7f);
             aRend.material = aMat;
 
+            BuildBackdrop();
+
             // Soft contact shadow: removes the hard "sticker" edge of the platform on bright floors
             GameObject shadowObj = new GameObject("Arena_Soft_Shadow");
             shadowObj.transform.SetParent(stageRootObj.transform, false);
-            shadowObj.transform.localPosition = new Vector3(0f, 0.006f, 0.4f);
+            shadowObj.transform.localPosition = new Vector3(0f, 0.024f, 0.4f);
             shadowObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             shadowObj.transform.localScale = new Vector3(11f, 8f, 1f);
             SpriteRenderer shadowRend = shadowObj.AddComponent<SpriteRenderer>();
@@ -114,12 +124,113 @@ namespace AuraKitchen
             shadowRend.color = new Color(0.02f, 0.04f, 0.1f, 0.55f);
             shadowRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             shadowRend.receiveShadows = false;
+            shadowRend.sortingOrder = 5;
 
             // 2. Build 4 Pedestals
             for (int i = 0; i < 4; i++)
             {
                 squadSlots[i] = CreatePodiumStation(i);
             }
+        }
+
+        private static Sprite MakeHalftoneSprite()
+        {
+            const int n = 256;
+            const int cell = 16;
+            Texture2D tex = new Texture2D(n, n, TextureFormat.RGBA32, true);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            Color32[] px = new Color32[n * n];
+            Color ink = AuraTheme.Ink;
+            Color dotColor = new Color(0.20f, 0.20f, 0.24f, 1f);
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    // dot grid, every other row shifted by half a cell (classic comic halftone)
+                    int shift = ((y / cell) % 2) * (cell / 2);
+                    float fx = ((x + shift) % cell) - cell * 0.5f;
+                    float fy = (y % cell) - cell * 0.5f;
+                    float d = Mathf.Sqrt(fx * fx + fy * fy);
+                    float dot = 1f - Mathf.SmoothStep(1.8f, 3.0f, d);
+                    px[y * n + x] = Color.Lerp(ink, dotColor, dot);
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(true, true);
+            return Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 32f, 0, SpriteMeshType.FullRect);
+        }
+
+        private void BuildBackdrop()
+        {
+            backdropRoot = new GameObject("Aura_Lobby_Backdrop");
+            backdropRoot.transform.position = stageCenter;
+
+            // Dark halftone ground that swallows the bright tile floor (tiled sprite: 8-unit tiles)
+            GameObject ground = new GameObject("Backdrop_Ground");
+            ground.transform.SetParent(backdropRoot.transform, false);
+            ground.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            ground.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            SpriteRenderer gr = ground.AddComponent<SpriteRenderer>();
+            gr.sprite = MakeHalftoneSprite();
+            gr.drawMode = SpriteDrawMode.Tiled;
+            gr.size = new Vector2(120f, 120f);
+            gr.sortingOrder = 0;
+            gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            gr.receiveShadows = false;
+
+            // Big faint kitchen icons floating behind the squad (billboarded in Update)
+            AuraIcon[] icons = { AuraIcon.ChefHat, AuraIcon.Cloche, AuraIcon.Flame, AuraIcon.Plate, AuraIcon.Star, AuraIcon.Clock, AuraIcon.Crown };
+            Vector3[] spots =
+            {
+                new Vector3(-7.5f, 3.4f, 7.5f), new Vector3(-4.2f, 5.2f, 9.5f), new Vector3(-0.5f, 3.0f, 10.5f),
+                new Vector3(3.6f, 5.0f, 9.5f), new Vector3(7.2f, 3.6f, 7.8f), new Vector3(-9.5f, 5.4f, 4.5f), new Vector3(9.6f, 5.4f, 4.8f)
+            };
+            float[] sizes = { 3.2f, 2.4f, 3.0f, 2.6f, 2.2f, 2.0f, 2.2f };
+
+            for (int i = 0; i < icons.Length; i++)
+            {
+                GameObject go = new GameObject("Backdrop_Icon_" + icons[i]);
+                go.transform.SetParent(backdropRoot.transform, false);
+                go.transform.localPosition = spots[i];
+                go.transform.localScale = Vector3.one * sizes[i];
+                SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = AuraIcons.Get(icons[i]);
+                sr.color = new Color(AuraTheme.Paper.r, AuraTheme.Paper.g, AuraTheme.Paper.b, 0.16f);
+                sr.sortingOrder = 2;
+                sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                backdropIcons.Add(go.transform);
+                backdropIconBase.Add(spots[i]);
+            }
+        }
+
+        private void EnterCartoonCamera()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) return;
+            if (!cameraSaved)
+            {
+                savedClearFlags = cam.clearFlags;
+                savedBackground = cam.backgroundColor;
+                cameraSaved = true;
+            }
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = AuraTheme.Ink;
+        }
+
+        private void RestoreCamera()
+        {
+            Camera cam = Camera.main;
+            if (cam == null || !cameraSaved) return;
+            cam.clearFlags = savedClearFlags;
+            cam.backgroundColor = savedBackground;
+            cameraSaved = false;
+        }
+
+        private void OnDestroy()
+        {
+            RestoreCamera();
+            if (Instance == this) Instance = null;
         }
 
         private static Sprite softDisc;
@@ -360,6 +471,8 @@ namespace AuraKitchen
             {
                 stageRootObj.SetActive(visible);
             }
+            if (backdropRoot != null) backdropRoot.SetActive(visible);
+            if (visible) EnterCartoonCamera(); else RestoreCamera();
 
             CacheAndToggleOriginalDucks(!visible);
         }
@@ -401,6 +514,13 @@ namespace AuraKitchen
             if (Camera.main != null)
             {
                 Quaternion camRot = Camera.main.transform.rotation;
+                for (int i = 0; i < backdropIcons.Count; i++)
+                {
+                    if (backdropIcons[i] == null) continue;
+                    backdropIcons[i].rotation = camRot * Quaternion.Euler(0f, 0f, Mathf.Sin(Time.time * 0.4f + i) * 6f);
+                    Vector3 b = backdropIconBase[i];
+                    backdropIcons[i].localPosition = new Vector3(b.x, b.y + Mathf.Sin(Time.time * 0.7f + i * 1.3f) * 0.25f, b.z);
+                }
                 for (int i = 0; i < squadSlots.Length; i++)
                 {
                     if (squadSlots[i] != null && squadSlots[i].overhead3DText != null)

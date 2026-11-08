@@ -436,7 +436,7 @@ namespace AuraKitchen
             // Reconnecting banner (top-center, under the timer and hype text)
             reconnectBanner = AuraTheme.CreatePanel(root, "ReconnectBanner",
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -160f),
-                new Vector2(420f, 46f), new Color32(0x2A, 0x1E, 0x08, 0xEE), AuraTheme.Amber, false);
+                new Vector2(420f, 46f), AuraTheme.PanelFill, AuraTheme.Amber, false);
             reconnectBanner.GetComponent<Image>().raycastTarget = false;
             AuraTheme.CreateIcon(reconnectBanner.transform, AuraIcons.Get(AuraIcon.WifiOff), new Vector2(-170f, 0f), 24f, AuraTheme.Amber);
             AuraTheme.CreateText(reconnectBanner.transform, "RECONNECTING...", 18f, FontStyles.Bold, new Vector2(14f, 0f), new Vector2(320f, 36f), AuraTheme.Amber);
