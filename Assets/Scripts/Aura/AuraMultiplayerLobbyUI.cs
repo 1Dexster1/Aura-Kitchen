@@ -52,7 +52,9 @@ namespace AuraKitchen
         private Button hostStartGameBtn;
 
         // Join View Elements
-        private TMP_InputField joinCodeInput;
+        private TextMeshProUGUI joinCodeDisplay;
+        private string joinCodeBuffer = "";
+        private const string JoinKeyChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         private TextMeshProUGUI joinStatusText;
         private Button joinSubmitBtn;
 
@@ -139,6 +141,8 @@ namespace AuraKitchen
         // Android hardware Back button / Esc key: close the name prompt or leave the lobby.
         private void Update()
         {
+            HandleJoinKeyboardTyping();
+
             if (!Input.GetKeyDown(KeyCode.Escape)) return;
 
             if (namePromptModalObj != null && namePromptModalObj.activeSelf)
@@ -428,57 +432,131 @@ namespace AuraKitchen
             CreateStyledButton(hudBottomLeftArea, "Btn_BackMenu", "Back to Menu", Vector2.zero, new Vector2(240, 64),
                 new Color32(0x7A, 0x1F, 0x2B, 0xEE), Color.white, CloseMultiplayerToMenu, 17);
 
-            // 6. FLOATING JOIN DIALOG (Only shown when Tab == "join")
-            joinModalDialog = CreateGlassPanel(hudRootObj, "Dialog_JoinSquad", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(560, 320), AuraTheme.PanelFill);
+            // 6. The join dialog is built lazily by EnsureJoinDialog() the first time "Join Squad" is opened.
+        }
 
+        // ==================== JOIN DIALOG (on-screen keypad) ====================
+        // TMP_InputField never opens a soft keyboard in mobile WebGL and is fragile when built at runtime,
+        // so the room code is typed on an on-screen keypad. A physical keyboard works too.
+
+        private void EnsureJoinDialog()
+        {
+            if (joinModalDialog != null || hudRootObj == null) return;
+
+            try
+            {
+                BuildJoinDialog();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                try
+                {
+                    // No console on phones / WebGL: show the reason on screen instead of failing silently
+                    CreateTMPText(hudRootObj, "Join dialog error: " + ex.Message, 18, FontStyles.Bold,
+                        Vector2.zero, new Vector2(1000, 140), AuraTheme.Danger);
+                }
+                catch (Exception) { }
+            }
+        }
+
+        private void BuildJoinDialog()
+        {
+            Vector2 c = new Vector2(0.5f, 0.5f);
+            joinModalDialog = CreateGlassPanel(hudRootObj, "Dialog_JoinSquad", c, c, c,
+                new Vector2(0, -30), new Vector2(760, 560), AuraTheme.PanelFill);
 
             CreateTMPText(joinModalDialog, "JOIN SQUAD KITCHEN", 26, FontStyles.Bold,
-                new Vector2(0, 105), new Vector2(500, 36), Color.white);
+                new Vector2(0, 240), new Vector2(700, 36), Color.white);
 
-            CreateTMPText(joinModalDialog, "Enter the 4-letter room code shared by your friend:", 16, FontStyles.Normal,
-                new Vector2(0, 68), new Vector2(500, 28), AuraTheme.TextSecondary);
+            CreateTMPText(joinModalDialog, "Tap the room code your friend shared:", 16, FontStyles.Normal,
+                new Vector2(0, 204), new Vector2(700, 28), AuraTheme.TextSecondary);
 
-            GameObject jBox = CreateGlassPanel(joinModalDialog, "Input_Container", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), new Vector2(0, 5), new Vector2(340, 72), AuraTheme.PanelDeep);
+            GameObject codeBox = CreateGlassPanel(joinModalDialog, "Code_Display", c, c, c,
+                new Vector2(0, 150), new Vector2(340, 72), AuraTheme.PanelDeep);
+            joinCodeDisplay = CreateTMPText(codeBox, "_ _ _ _", 36, FontStyles.Bold,
+                Vector2.zero, new Vector2(320, 66), AuraTheme.Gold);
 
-            // TMP_InputField needs a text viewport (and ideally a placeholder) when built at runtime,
-            // otherwise it can throw a NullReferenceException as soon as the dialog is activated.
-            RectTransform joinViewport = AuraTheme.MakeRect(jBox.transform, "Text Viewport");
-            joinViewport.anchorMin = Vector2.zero;
-            joinViewport.anchorMax = Vector2.one;
-            joinViewport.offsetMin = new Vector2(10f, 6f);
-            joinViewport.offsetMax = new Vector2(-10f, -7f);
-            joinViewport.gameObject.AddComponent<RectMask2D>();
+            // 8 x 4 keypad with the same alphabet the server uses for room codes
+            const int cols = 8;
+            float keyW = 76f, keyH = 52f, gap = 8f;
+            float startX = -((cols * keyW + (cols - 1) * gap) * 0.5f) + keyW * 0.5f;
+            float startY = 80f;
+            for (int i = 0; i < JoinKeyChars.Length; i++)
+            {
+                char ch = JoinKeyChars[i];
+                int col = i % cols;
+                int row = i / cols;
+                Vector2 pos = new Vector2(startX + col * (keyW + gap), startY - row * (keyH + gap));
+                CreateStyledButton(joinModalDialog, "Key_" + ch, ch.ToString(), pos, new Vector2(keyW, keyH),
+                    new Color32(0x1B, 0x3A, 0x5E, 0xF2), Color.white, () => AppendJoinChar(ch), 22);
+            }
 
-            TextMeshProUGUI ipTmp = CreateTMPText(joinViewport.gameObject, "", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66), AuraTheme.Gold);
-            ipTmp.rectTransform.anchorMin = Vector2.zero;
-            ipTmp.rectTransform.anchorMax = Vector2.one;
-            ipTmp.rectTransform.offsetMin = Vector2.zero;
-            ipTmp.rectTransform.offsetMax = Vector2.zero;
+            CreateStyledButton(joinModalDialog, "Btn_JoinDelete", "Delete", new Vector2(-175, -175), new Vector2(220, 56),
+                new Color32(0x7A, 0x1F, 0x2B, 0xEE), Color.white, BackspaceJoinChar, 20);
 
-            TextMeshProUGUI ipPlaceholder = CreateTMPText(joinViewport.gameObject, "ABCD", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66),
-                new Color(AuraTheme.Gold.r, AuraTheme.Gold.g, AuraTheme.Gold.b, 0.35f));
-            ipPlaceholder.rectTransform.anchorMin = Vector2.zero;
-            ipPlaceholder.rectTransform.anchorMax = Vector2.one;
-            ipPlaceholder.rectTransform.offsetMin = Vector2.zero;
-            ipPlaceholder.rectTransform.offsetMax = Vector2.zero;
-
-            joinCodeInput = jBox.AddComponent<TMP_InputField>();
-            joinCodeInput.targetGraphic = jBox.GetComponent<Image>();
-            joinCodeInput.textViewport = joinViewport;
-            joinCodeInput.textComponent = ipTmp;
-            joinCodeInput.placeholder = ipPlaceholder;
-            joinCodeInput.characterLimit = 4;
-            joinCodeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
-
-            joinSubmitBtn = CreateStyledButton(joinModalDialog, "Btn_JoinSubmit", "Join Squad", new Vector2(0, -75), new Vector2(340, 64),
+            joinSubmitBtn = CreateStyledButton(joinModalDialog, "Btn_JoinSubmit", "Join Squad", new Vector2(125, -175), new Vector2(340, 56),
                 new Color32(0x12, 0x8A, 0x4E, 0xF5), Color.white, OnJoinSubmitClicked, 22).GetComponent<Button>();
 
             joinStatusText = CreateTMPText(joinModalDialog, "", 15, FontStyles.Normal,
-                new Vector2(0, -125), new Vector2(520, 30), AuraTheme.Danger);
+                new Vector2(0, -235), new Vector2(700, 30), AuraTheme.Danger);
 
-            joinModalDialog.SetActive(false);
+            RefreshJoinCode();
+        }
+
+        private void AppendJoinChar(char ch)
+        {
+            if (joinCodeBuffer == null) joinCodeBuffer = "";
+            if (joinCodeBuffer.Length >= 4) return;
+            joinCodeBuffer += ch;
+            RefreshJoinCode();
+        }
+
+        private void BackspaceJoinChar()
+        {
+            if (string.IsNullOrEmpty(joinCodeBuffer)) return;
+            joinCodeBuffer = joinCodeBuffer.Substring(0, joinCodeBuffer.Length - 1);
+            RefreshJoinCode();
+        }
+
+        private void RefreshJoinCode()
+        {
+            if (joinCodeDisplay == null) return;
+            if (joinCodeBuffer == null) joinCodeBuffer = "";
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 4; i++)
+            {
+                sb.Append(i < joinCodeBuffer.Length ? joinCodeBuffer[i] : '_');
+                if (i < 3) sb.Append(' ');
+            }
+            joinCodeDisplay.text = sb.ToString();
+        }
+
+        private void HandleJoinKeyboardTyping()
+        {
+            if (joinModalDialog == null || !joinModalDialog.activeInHierarchy) return;
+
+            string typed = Input.inputString;
+            if (string.IsNullOrEmpty(typed)) return;
+
+            for (int i = 0; i < typed.Length; i++)
+            {
+                char ch = typed[i];
+                if (ch == '\b')
+                {
+                    BackspaceJoinChar();
+                }
+                else if (ch == '\n' || ch == '\r')
+                {
+                    if (joinSubmitBtn != null && joinSubmitBtn.interactable && joinCodeBuffer.Length >= 3) OnJoinSubmitClicked();
+                }
+                else
+                {
+                    char up = char.ToUpperInvariant(ch);
+                    if (JoinKeyChars.IndexOf(up) >= 0) AppendJoinChar(up);
+                }
+            }
         }
 
         private GameObject CreateGlassPanel(GameObject parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 pos, Vector2 size, Color color)
@@ -610,6 +688,8 @@ namespace AuraKitchen
 
         private void SwitchTab(string tabName)
         {
+            if (tabName == "join") EnsureJoinDialog();
+
             if (hostViewControls != null) hostViewControls.SetActive(tabName == "host");
             if (joinModalDialog != null) joinModalDialog.SetActive(tabName == "join");
             if (guestWaitingControls != null) guestWaitingControls.SetActive(tabName == "guest_waiting");
@@ -634,10 +714,10 @@ namespace AuraKitchen
             }
             else if (tabName == "join")
             {
-                // Make sure the code dialog is drawn above everything else and ready for typing
+                // Make sure the code dialog is drawn above everything else
                 if (joinModalDialog != null) joinModalDialog.transform.SetAsLastSibling();
                 if (joinSubmitBtn != null) joinSubmitBtn.interactable = true;
-                if (joinCodeInput != null) joinCodeInput.ActivateInputField();
+                RefreshJoinCode();
             }
             else if (tabName == "solo")
             {
@@ -731,7 +811,7 @@ namespace AuraKitchen
 
         private void OnJoinSubmitClicked()
         {
-            string code = joinCodeInput != null ? joinCodeInput.text.Replace(" ", "").Trim().ToUpper() : "";
+            string code = (joinCodeBuffer ?? "").Trim().ToUpper();
             if (string.IsNullOrEmpty(code) || code.Length < 3)
             {
                 if (joinStatusText != null) joinStatusText.text = "Please enter a valid 4-letter room code.";
