@@ -139,7 +139,7 @@ namespace AuraKitchen
             sRect.sizeDelta = new Vector2(260, 56);
 
             Image sImg = switchChefBtnObj.AddComponent<Image>();
-            sImg.sprite = AuraTheme.RoundedFill;
+            sImg.sprite = AuraTheme.RoundedFace;
             sImg.type = Image.Type.Sliced;
             sImg.color = AuraTheme.PanelFill;
 

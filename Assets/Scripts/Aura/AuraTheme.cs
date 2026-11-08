@@ -13,27 +13,27 @@ namespace AuraKitchen
     /// </summary>
     public static class AuraTheme
     {
-        // ==================== PALETTE (cartoon: ink black + paper white) ====================
-        public static readonly Color Ink       = new Color32(0x0D, 0x0D, 0x10, 0xFF);
-        public static readonly Color Paper     = new Color32(0xF7, 0xF5, 0xF0, 0xFF);
+        // ==================== PALETTE (derived from the kitchen: walnut counters, cream tiles, wall blue) ====================
+        public static readonly Color Ink       = new Color32(0x1E, 0x10, 0x0A, 0xFF); // outlines + deep shadow
+        public static readonly Color Paper     = new Color32(0xFF, 0xF1, 0xD0, 0xFF); // cream text / paper
 
-        // "Cyan" is kept as a name so existing call sites keep compiling; it is now paper white.
+        // "Cyan" is kept as a name so existing call sites keep compiling; it is now cream.
         public static readonly Color Cyan      = Paper;
-        public static readonly Color Amber     = new Color32(0xFF, 0xB8, 0x1C, 0xFF);
-        public static readonly Color Gold      = new Color32(0xFF, 0xD2, 0x3F, 0xFF);
-        public static readonly Color Success   = new Color32(0x4A, 0xDE, 0x80, 0xFF);
-        public static readonly Color Danger    = new Color32(0xFF, 0x5C, 0x5C, 0xFF);
+        public static readonly Color Amber     = new Color32(0xFF, 0xB0, 0x20, 0xFF);
+        public static readonly Color Gold      = new Color32(0xFF, 0xD5, 0x4A, 0xFF);
+        public static readonly Color Success   = new Color32(0x5B, 0xD3, 0x6B, 0xFF);
+        public static readonly Color Danger    = new Color32(0xFF, 0x5A, 0x4A, 0xFF);
         public static readonly Color Ember     = new Color32(0xFF, 0x7A, 0x1A, 0xFF);
 
-        public static readonly Color PanelFill   = new Color32(0x14, 0x14, 0x18, 0xF5);
-        public static readonly Color PanelRaised = new Color32(0x22, 0x22, 0x28, 0xFA);
-        public static readonly Color PanelDeep   = new Color32(0x0A, 0x0A, 0x0C, 0xFA);
-        public static readonly Color Scrim       = new Color32(0x05, 0x05, 0x07, 0xDB);
-        public static readonly Color Stroke      = new Color32(0xF7, 0xF5, 0xF0, 0xF2);
-        public static readonly Color StrokeSoft  = new Color32(0xF7, 0xF5, 0xF0, 0x55);
+        public static readonly Color PanelFill   = new Color32(0x3B, 0x24, 0x16, 0xF5); // dark walnut board
+        public static readonly Color PanelRaised = new Color32(0x55, 0x36, 0x20, 0xFA); // lighter plank
+        public static readonly Color PanelDeep   = new Color32(0x24, 0x14, 0x0B, 0xFA);
+        public static readonly Color Scrim       = new Color32(0x14, 0x0A, 0x05, 0xDB);
+        public static readonly Color Stroke      = Ink;                                  // chunky dark outline
+        public static readonly Color StrokeSoft  = new Color32(0x1E, 0x10, 0x0A, 0xC0);
 
         public static readonly Color TextPrimary   = Paper;
-        public static readonly Color TextSecondary = new Color32(0xB4, 0xB4, 0xBE, 0xFF);
+        public static readonly Color TextSecondary = new Color32(0xE0, 0xC2, 0x96, 0xFF); // tan
 
         // ==================== CHEFS ====================
         public static readonly string[] ChefNames  = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
@@ -83,7 +83,7 @@ namespace AuraKitchen
             return Mathf.Sqrt(ox * ox + oy * oy) + Mathf.Min(Mathf.Max(qx, qy), 0f) - r;
         }
 
-        private static Sprite BuildSprite(string key, int size, float border, Func<float, float, float> alphaAt)
+        private static Sprite BuildSprite(string key, int size, float border, Func<float, float, float> alphaAt, Func<float, float> shadeByHeight = null)
         {
             Sprite cached;
             if (spriteCache.TryGetValue(key, out cached) && cached != null) return cached;
@@ -98,7 +98,9 @@ namespace AuraKitchen
                 for (int x = 0; x < size; x++)
                 {
                     float a = Mathf.Clamp01(alphaAt(x - c, y - c));
-                    px[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
+                    byte v = 255;
+                    if (shadeByHeight != null) v = (byte)Mathf.RoundToInt(Mathf.Clamp01(shadeByHeight(y / (size - 1f))) * 255f);
+                    px[y * size + x] = new Color32(v, v, v, (byte)Mathf.RoundToInt(a * 255f));
                 }
             }
             tex.SetPixels32(px);
@@ -118,6 +120,17 @@ namespace AuraKitchen
             {
                 return BuildSprite("aura_rounded_fill", TexSize, Radius + 2, (x, y) =>
                     0.5f - RoundedBoxSdf(x, y, TexSize * 0.5f - 0.5f, Radius));
+            }
+        }
+
+        /// <summary>Filled rounded rectangle with a vertical bevel (lighter top, darker bottom). Tint with Image.color.</summary>
+        public static Sprite RoundedFace
+        {
+            get
+            {
+                return BuildSprite("aura_rounded_face", TexSize, Radius + 2, (x, y) =>
+                    0.5f - RoundedBoxSdf(x, y, TexSize * 0.5f - 0.5f, Radius),
+                    t => Mathf.Lerp(0.74f, 1f, Mathf.SmoothStep(0f, 1f, t)));
             }
         }
 
@@ -185,55 +198,121 @@ namespace AuraKitchen
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
+            bool framed = accent.a > 0.001f;
+
             Image img = rt.gameObject.AddComponent<Image>();
-            img.sprite = RoundedFill;
+            img.sprite = framed ? RoundedFace : RoundedFill;
             img.type = Image.Type.Sliced;
             img.color = fill;
 
             if (shadow) AddHardShadow(img.gameObject);
 
-            if (accent.a > 0.001f)
+            if (framed)
             {
-                RectTransform ring = MakeRect(rt, "Stroke");
-                ring.anchorMin = Vector2.zero;
-                ring.anchorMax = Vector2.one;
-                ring.offsetMin = Vector2.zero;
-                ring.offsetMax = Vector2.zero;
-                Image rImg = ring.gameObject.AddComponent<Image>();
-                rImg.sprite = RoundedRing;
-                rImg.type = Image.Type.Sliced;
-                rImg.color = accent;
-                rImg.raycastTarget = false;
+                // chunky outline
+                AddRing(rt, "Stroke", accent, 0f);
+                // light inner rim = bevel highlight (only on dark outlines)
+                if (accent.a > 0.5f && accent.r + accent.g + accent.b < 1.2f)
+                {
+                    AddRing(rt, "Rim", new Color(1f, 0.86f, 0.62f, 0.22f), 4f);
+                }
+
+                // rivets on big boards
+                if (size.x >= 300f && size.y >= 110f && shadow)
+                {
+                    float inset = 13f;
+                    Vector2[] corners = { new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
+                    for (int i = 0; i < 4; i++)
+                    {
+                        RectTransform rv = MakeRect(rt, "Rivet");
+                        rv.anchorMin = corners[i];
+                        rv.anchorMax = corners[i];
+                        rv.pivot = new Vector2(0.5f, 0.5f);
+                        rv.anchoredPosition = new Vector2(corners[i].x < 0.5f ? inset : -inset, corners[i].y > 0.5f ? -inset : inset);
+                        rv.sizeDelta = new Vector2(8f, 8f);
+                        Image rvImg = rv.gameObject.AddComponent<Image>();
+                        rvImg.sprite = Dot;
+                        rvImg.color = new Color(0.97f, 0.78f, 0.5f, 0.55f);
+                        rvImg.raycastTarget = false;
+                    }
+                }
             }
 
             return rt.gameObject;
+        }
+
+        private static Image AddRing(RectTransform parent, string name, Color color, float inset)
+        {
+            RectTransform ring = MakeRect(parent, name);
+            ring.anchorMin = Vector2.zero;
+            ring.anchorMax = Vector2.one;
+            ring.offsetMin = new Vector2(inset, inset);
+            ring.offsetMax = new Vector2(-inset, -inset);
+            Image rImg = ring.gameObject.AddComponent<Image>();
+            rImg.sprite = RoundedRing;
+            rImg.type = Image.Type.Sliced;
+            rImg.color = color;
+            rImg.raycastTarget = false;
+            return rImg;
         }
 
         /// <summary>Cartoon "sticker" shadow: solid, offset down-right, drawn behind the graphic.</summary>
         public static void AddHardShadow(GameObject go)
         {
             Shadow sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0f, 0f, 0f, 0.9f);
-            sh.effectDistance = new Vector2(5f, -6f);
+            sh.effectColor = new Color(0.06f, 0.03f, 0.01f, 0.55f);
+            sh.effectDistance = new Vector2(0f, -7f);
             sh.useGraphicAlpha = false;
         }
 
         public enum ButtonStyle { Primary, Success, Danger, Ghost, Gold }
 
+        /// <summary>fill = candy face color; the darker "lip" under it is derived from it.</summary>
         public static void GetButtonColors(ButtonStyle style, out Color fill, out Color text, out Color accent)
         {
+            accent = Ink;
             switch (style)
             {
-                case ButtonStyle.Success: // the one loud call-to-action color
-                    fill = Amber; text = Ink; accent = Ink; break;
+                case ButtonStyle.Success:
+                    fill = new Color32(0x4F, 0xC9, 0x5B, 0xFF); text = Paper; break;
                 case ButtonStyle.Danger:
-                    fill = Ink; text = Danger; accent = Danger; break;
+                    fill = new Color32(0xE5, 0x53, 0x3C, 0xFF); text = Paper; break;
                 case ButtonStyle.Gold:
-                    fill = Ink; text = Gold; accent = Gold; break;
+                    fill = new Color32(0xFF, 0xC5, 0x3A, 0xFF); text = new Color32(0x4A, 0x2A, 0x10, 0xFF); break;
                 case ButtonStyle.Ghost:
-                    fill = new Color32(0x14, 0x14, 0x18, 0xF0); text = Paper; accent = new Color32(0xF7, 0xF5, 0xF0, 0xA0); break;
-                default: // Primary: white sticker
-                    fill = Paper; text = Ink; accent = Ink; break;
+                    fill = new Color32(0x8B, 0x5A, 0x36, 0xFF); text = Paper; break;
+                default: // Primary: wall blue
+                    fill = new Color32(0x3F, 0x95, 0xDB, 0xFF); text = Paper; break;
+            }
+        }
+
+        private static Color Lip(Color face)
+        {
+            return new Color(face.r * 0.55f, face.g * 0.5f, face.b * 0.5f, 1f);
+        }
+
+        /// <summary>Re-skins an existing themed button (used by tabs that toggle between active/inactive).</summary>
+        public static void ApplyButtonStyle(GameObject btn, ButtonStyle style)
+        {
+            if (btn == null) return;
+            Color fill, text, accent;
+            GetButtonColors(style, out fill, out text, out accent);
+
+            Image root = btn.GetComponent<Image>();
+            if (root != null) root.color = Lip(fill);
+
+            Transform face = btn.transform.Find("Face");
+            if (face != null)
+            {
+                Image fi = face.GetComponent<Image>();
+                if (fi != null) fi.color = fill;
+                TextMeshProUGUI label = face.GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null)
+                {
+                    label.color = text;
+                    label.outlineWidth = style == ButtonStyle.Gold ? 0f : 0.22f;
+                    label.outlineColor = (Color32)Ink;
+                }
             }
         }
 
@@ -258,34 +337,52 @@ namespace AuraKitchen
         public static GameObject CreateButton(Transform parent, string name, string label, Vector2 pos, Vector2 size,
             Color fill, Color textColor, Color accent, Action onClick = null, float fontSize = 18f, Sprite icon = null)
         {
+            float lipH = Mathf.Clamp(size.y * 0.11f, 4f, 8f);
+
             RectTransform rt = MakeRect(parent, name);
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
-            Image img = rt.gameObject.AddComponent<Image>();
-            img.sprite = RoundedFill;
-            img.type = Image.Type.Sliced;
-            img.color = fill;
-            AddHardShadow(img.gameObject);
+            // root = the dark "lip" you see under the face
+            Image root = rt.gameObject.AddComponent<Image>();
+            root.sprite = RoundedFill;
+            root.type = Image.Type.Sliced;
+            root.color = Lip(fill);
+            AddHardShadow(root.gameObject);
 
-            RectTransform ring = MakeRect(rt, "Stroke");
-            ring.anchorMin = Vector2.zero;
-            ring.anchorMax = Vector2.one;
-            ring.offsetMin = Vector2.zero;
-            ring.offsetMax = Vector2.zero;
-            Image rImg = ring.gameObject.AddComponent<Image>();
-            rImg.sprite = RoundedRing;
-            rImg.type = Image.Type.Sliced;
-            rImg.color = accent;
-            rImg.raycastTarget = false;
+            // face = the candy top, bevelled, sits above the lip
+            RectTransform faceRt = MakeRect(rt, "Face");
+            faceRt.anchorMin = Vector2.zero;
+            faceRt.anchorMax = Vector2.one;
+            faceRt.offsetMin = new Vector2(0f, lipH);
+            faceRt.offsetMax = Vector2.zero;
+            Image face = faceRt.gameObject.AddComponent<Image>();
+            face.sprite = RoundedFace;
+            face.type = Image.Type.Sliced;
+            face.color = fill;
+
+            // gloss strip
+            RectTransform glossRt = MakeRect(faceRt, "Gloss");
+            glossRt.anchorMin = new Vector2(0f, 0.52f);
+            glossRt.anchorMax = new Vector2(1f, 1f);
+            glossRt.offsetMin = new Vector2(8f, 0f);
+            glossRt.offsetMax = new Vector2(-8f, -4f);
+            Image gloss = glossRt.gameObject.AddComponent<Image>();
+            gloss.sprite = RoundedFill;
+            gloss.type = Image.Type.Sliced;
+            gloss.color = new Color(1f, 1f, 1f, 0.2f);
+            gloss.raycastTarget = false;
+
+            // outline around lip + face
+            AddRing(rt, "Stroke", accent, 0f);
 
             Button btn = rt.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
+            btn.targetGraphic = face;
             ColorBlock cb = btn.colors;
             cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(1.18f, 1.18f, 1.18f, 1f);
-            cb.pressedColor = new Color(0.78f, 0.78f, 0.78f, 1f);
-            cb.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+            cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+            cb.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            cb.disabledColor = new Color(0.55f, 0.55f, 0.55f, 0.75f);
             cb.fadeDuration = 0.08f;
             btn.colors = cb;
             if (onClick != null) btn.onClick.AddListener(() => onClick());
@@ -296,7 +393,7 @@ namespace AuraKitchen
             if (icon != null)
             {
                 float iconSize = Mathf.Min(size.y * 0.5f, 34f);
-                RectTransform ir = MakeRect(rt, "Icon");
+                RectTransform ir = MakeRect(faceRt, "Icon");
                 ir.anchorMin = new Vector2(0f, 0.5f);
                 ir.anchorMax = new Vector2(0f, 0.5f);
                 ir.pivot = new Vector2(0f, 0.5f);
@@ -309,14 +406,18 @@ namespace AuraKitchen
                 textInset = size.y * 0.3f + iconSize * 0.5f;
             }
 
-            TextMeshProUGUI tmp = CreateText(rt, label, fontSize, FontStyles.Bold, Vector2.zero, size, textColor);
+            TextMeshProUGUI tmp = CreateText(faceRt, label, fontSize, FontStyles.Bold, Vector2.zero, size, textColor);
             tmp.rectTransform.anchorMin = Vector2.zero;
             tmp.rectTransform.anchorMax = Vector2.one;
-            tmp.rectTransform.offsetMin = new Vector2(textInset, 0f);
-            tmp.rectTransform.offsetMax = Vector2.zero;
+            tmp.rectTransform.offsetMin = new Vector2(textInset + 4f, 0f);
+            tmp.rectTransform.offsetMax = new Vector2(-4f, 0f);
             tmp.enableAutoSizing = true;
             tmp.fontSizeMin = Mathf.Max(8f, fontSize * 0.6f);
             tmp.fontSizeMax = fontSize;
+            // dark text (Gold style) needs no outline; light text gets a dark one
+            bool darkText = (textColor.r + textColor.g + textColor.b) < 1.4f;
+            tmp.outlineWidth = darkText ? 0f : 0.22f;
+            tmp.outlineColor = (Color32)Ink;
 
             return rt.gameObject;
         }
@@ -336,6 +437,14 @@ namespace AuraKitchen
             tmp.alignment = align;
             tmp.color = color;
             tmp.raycastTarget = false;
+
+            // cartoon lettering: dark outline on light text that is big enough to carry it
+            bool lightText = (color.r + color.g + color.b) > 1.6f;
+            if (lightText && size >= 15f)
+            {
+                tmp.outlineWidth = size >= 26f ? 0.2f : 0.24f;
+                tmp.outlineColor = (Color32)Ink;
+            }
             return tmp;
         }
 

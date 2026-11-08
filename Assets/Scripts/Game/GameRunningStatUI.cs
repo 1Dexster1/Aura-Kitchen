@@ -52,7 +52,7 @@ public class GameRunningStatUI : MonoBehaviour
         {
             badgeBackground = parentObj.AddComponent<Image>();
         }
-        badgeBackground.sprite = AuraTheme.RoundedFill;
+        badgeBackground.sprite = AuraTheme.RoundedFace;
         badgeBackground.type = Image.Type.Sliced;
         badgeBackground.color = AuraTheme.PanelFill;
 

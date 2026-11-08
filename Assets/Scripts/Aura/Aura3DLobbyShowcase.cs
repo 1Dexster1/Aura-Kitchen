@@ -13,6 +13,7 @@ namespace AuraKitchen
         [Header("Squad Stage Config")]
         [SerializeField] private Vector3 stageCenter = new Vector3(0.95f, 0f, -4.2f);
         private const float BaseYRotation = 18f;
+        private const float NameplateHeight = 3.05f; // clear of the chef's head at 1.25x scale
 
         private GameObject stageRootObj;
         private SquadSlotData[] squadSlots = new SquadSlotData[4];
@@ -142,7 +143,7 @@ namespace AuraKitchen
             tex.filterMode = FilterMode.Bilinear;
             Color32[] px = new Color32[n * n];
             Color ink = AuraTheme.Ink;
-            Color dotColor = new Color(0.20f, 0.20f, 0.24f, 1f);
+            Color dotColor = new Color(0.30f, 0.18f, 0.10f, 1f);
             for (int y = 0; y < n; y++)
             {
                 for (int x = 0; x < n; x++)
@@ -196,7 +197,7 @@ namespace AuraKitchen
                 go.transform.localScale = Vector3.one * sizes[i];
                 SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = AuraIcons.Get(icons[i]);
-                sr.color = new Color(AuraTheme.Paper.r, AuraTheme.Paper.g, AuraTheme.Paper.b, 0.16f);
+                sr.color = new Color(1f, 0.78f, 0.45f, 0.18f);
                 sr.sortingOrder = 2;
                 sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 backdropIcons.Add(go.transform);
@@ -341,7 +342,7 @@ namespace AuraKitchen
             // 5. 3D Floating Nameplate Above Head (compact: 3 short lines, well above the head)
             GameObject tagObj = new GameObject("Overhead_3D_Tag");
             tagObj.transform.SetParent(stationRoot.transform, false);
-            tagObj.transform.localPosition = new Vector3(0, 2.5f, 0);
+            tagObj.transform.localPosition = new Vector3(0, NameplateHeight, 0);
 
             TextMeshPro tmp = tagObj.AddComponent<TextMeshPro>();
             if (AuraTheme.Font != null) tmp.font = AuraTheme.Font;
@@ -353,6 +354,16 @@ namespace AuraKitchen
             tmp.outlineWidth = 0.22f;
             tmp.outlineColor = new Color32(6, 10, 22, 255);
             tmp.rectTransform.sizeDelta = new Vector2(2.2f, 0.9f);
+
+            // Always draw the nameplate on top: the chef's own head/body must never hide it
+            Material tagMat = tmp.fontMaterial; // per-label instance
+            if (tagMat != null)
+            {
+                if (tagMat.HasProperty("unity_GUIZTestMode"))
+                    tagMat.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
+                tagMat.renderQueue = 4000;
+            }
+            tmp.sortingOrder = 50;
             data.overhead3DText = tmp;
 
             return data;
@@ -452,7 +463,7 @@ namespace AuraKitchen
 
             if (occupied && data.overhead3DText != null)
             {
-                data.overhead3DText.transform.localPosition = new Vector3(0f, 2.5f, 0f);
+                data.overhead3DText.transform.localPosition = new Vector3(0f, NameplateHeight, 0f);
             }
         }
 

@@ -178,10 +178,10 @@ public class GameEndUI : MonoBehaviour
         CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), AuraIcon.Check, AuraTheme.Success, out modernEfficiencyValText);
 
         // Buttons
-        AuraTheme.CreateButton(card.transform, "Btn_PlayAgain", "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
+        AuraTheme.CreateButton(card.transform, "Btn_PlayAgain", "Play Again", new Vector2(-220, -250), new Vector2(400, 80),
             AuraTheme.ButtonStyle.Success, PlayAgainAction, 24, AuraIcons.Get(AuraIcon.Check));
 
-        AuraTheme.CreateButton(card.transform, "Btn_MainMenu", "MAIN MENU", new Vector2(220, -250), new Vector2(400, 80),
+        AuraTheme.CreateButton(card.transform, "Btn_MainMenu", "Main Menu", new Vector2(220, -250), new Vector2(400, 80),
             AuraTheme.ButtonStyle.Ghost, MainMenuAction, 24, AuraIcons.Get(AuraIcon.Plate));
 
         modernModalObj.SetActive(false);
