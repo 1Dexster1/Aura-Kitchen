@@ -85,9 +85,15 @@ namespace AuraKitchen
                 cachedFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
             }
 
-            CreateTransparentBattleRoyaleHUD();
+            // Wrapped in try/catch: if building the UI throws on a device, the HUD must still end up hidden.
+            try { CreateTransparentBattleRoyaleHUD(); }
+            catch (Exception ex) { Debug.LogException(ex); }
+
             if (hudRootObj != null) hudRootObj.SetActive(false); // never visible until the lobby is really opened
-            CreateNamePromptModal();
+
+            try { CreateNamePromptModal(); }
+            catch (Exception ex) { Debug.LogException(ex); }
+
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -130,10 +136,28 @@ namespace AuraKitchen
             if (!lobbyOpen && hudRootObj != null && hudRootObj.activeSelf) hudRootObj.SetActive(false);
         }
 
+        // Android hardware Back button / Esc key: close the name prompt or leave the lobby.
+        private void Update()
+        {
+            if (!Input.GetKeyDown(KeyCode.Escape)) return;
+
+            if (namePromptModalObj != null && namePromptModalObj.activeSelf)
+            {
+                HideNamePromptModal();
+                HideLobby();
+            }
+            else if (lobbyOpen)
+            {
+                CloseMultiplayerToMenu();
+            }
+        }
+
         private void Start()
         {
             HideLobby();
             HideNamePromptModal();
+            // Always keep the whole lobby canvas off until the player really opens Multiplayer.
+            if (lobbyRootCanvas != null) lobbyRootCanvas.SetActive(false);
         }
 
         public void OpenMultiplayer()
@@ -494,6 +518,14 @@ namespace AuraKitchen
             // Confirm Button
             CreateStyledButton(card, "Btn_ConfirmName", "Save & Enter Lobby", new Vector2(0, -130), new Vector2(420, 72),
                 new Color32(0x12, 0x8A, 0x4E, 0xFF), Color.white, OnSaveNameClicked, 20);
+
+            // Back Button: lets the player leave the name prompt and return to the main menu
+            CreateStyledButton(card, "Btn_CancelName", "Back to Menu", new Vector2(0, -240), new Vector2(240, 44),
+                new Color32(0x7A, 0x1F, 0x2B, 0xEE), Color.white, () =>
+                {
+                    HideNamePromptModal();
+                    HideLobby();
+                }, 18);
 
             namePromptStatusText = CreateTMPText(card, "", 15, FontStyles.Normal,
                 new Vector2(0, -195), new Vector2(700, 32), AuraTheme.Danger);
