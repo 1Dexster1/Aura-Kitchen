@@ -13,7 +13,7 @@ namespace AuraKitchen
         [Header("Squad Stage Config")]
         [SerializeField] private Vector3 stageCenter = new Vector3(0.95f, 0f, -4.2f);
         private const float BaseYRotation = 18f;
-        private const float NameplateHeight = 3.05f; // clear of the chef's head at 1.25x scale
+        private const float NameplateHeight = 2.55f; // clear of the chef's head at 1.25x scale
 
         private GameObject stageRootObj;
         private SquadSlotData[] squadSlots = new SquadSlotData[4];
@@ -39,6 +39,7 @@ namespace AuraKitchen
             public GameObject pedestalObj;
             public GameObject neonRingObj;
             public GameObject chefModelObj;
+            public List<Material> chefMats = new List<Material>();
             public Light spotLight;
             public TextMeshPro overhead3DText;
             public LobbyChefIdleAnimator idleAnimator;
@@ -48,21 +49,21 @@ namespace AuraKitchen
 
         public static readonly Color[] SlotNeonColors = AuraTheme.ChefColors;
 
-        // Battle-Royale V-Formation offsets (relative to stageCenter)
+        // Gentle arc, left to right = P1..P4 (offsets relative to stageCenter)
         private static readonly Vector3[] SlotPositions = new Vector3[]
         {
-            new Vector3(-0.95f, 0f, 0f),    // Slot 0: Host / Center-Left Front
-            new Vector3(0.95f, 0f, 0f),     // Slot 1: P2 / Center-Right Front
-            new Vector3(-2.25f, 0f, 0.85f), // Slot 2: P3 / Left Flank
-            new Vector3(2.25f, 0f, 0.85f)   // Slot 3: P4 / Right Flank
+            new Vector3(-2.75f, 0f, 0.45f),
+            new Vector3(-0.92f, 0f, 0f),
+            new Vector3(0.92f, 0f, 0f),
+            new Vector3(2.75f, 0f, 0.45f)
         };
 
         private static readonly float[] SlotYRotations = new float[]
         {
-            10f,   // Slot 0 angles slightly inward
-            -10f,  // Slot 1 angles slightly inward
-            22f,   // Slot 2 angles inward
-            -22f   // Slot 3 angles inward
+            14f,   // outer slots turn slightly inward
+            5f,
+            -5f,
+            -14f
         };
 
         private void Awake()
@@ -101,15 +102,16 @@ namespace AuraKitchen
             arenaBase.name = "Arena_Floor_Base";
             arenaBase.transform.SetParent(stageRootObj.transform, false);
             arenaBase.transform.localPosition = new Vector3(0, 0.015f, 0.4f);
-            arenaBase.transform.localScale = new Vector3(6.8f, 0.015f, 4.8f);
+            arenaBase.transform.localScale = new Vector3(8.8f, 0.015f, 4.4f);
             Destroy(arenaBase.GetComponent<Collider>());
 
             Renderer aRend = arenaBase.GetComponent<Renderer>();
             Material aMat = new Material(GetDefaultShader());
-            aMat.color = new Color(0.08f, 0.08f, 0.10f);
-            if (aMat.HasProperty("_BaseColor")) aMat.SetColor("_BaseColor", new Color(0.08f, 0.08f, 0.10f));
-            if (aMat.HasProperty("_Metallic")) aMat.SetFloat("_Metallic", 0.5f);
-            if (aMat.HasProperty("_Smoothness")) aMat.SetFloat("_Smoothness", 0.7f);
+            Color arenaCol = new Color(0.20f, 0.12f, 0.075f);
+            aMat.color = arenaCol;
+            if (aMat.HasProperty("_BaseColor")) aMat.SetColor("_BaseColor", arenaCol);
+            if (aMat.HasProperty("_Metallic")) aMat.SetFloat("_Metallic", 0f);
+            if (aMat.HasProperty("_Smoothness")) aMat.SetFloat("_Smoothness", 0.25f);
             aRend.material = aMat;
 
             BuildBackdrop();
@@ -119,7 +121,7 @@ namespace AuraKitchen
             shadowObj.transform.SetParent(stageRootObj.transform, false);
             shadowObj.transform.localPosition = new Vector3(0f, 0.024f, 0.4f);
             shadowObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            shadowObj.transform.localScale = new Vector3(11f, 8f, 1f);
+            shadowObj.transform.localScale = new Vector3(13f, 8f, 1f);
             SpriteRenderer shadowRend = shadowObj.AddComponent<SpriteRenderer>();
             shadowRend.sprite = MakeSoftDisc();
             shadowRend.color = new Color(0.02f, 0.04f, 0.1f, 0.55f);
@@ -290,10 +292,11 @@ namespace AuraKitchen
 
             Renderer pRend = pedestal.GetComponent<Renderer>();
             Material pMat = new Material(GetDefaultShader());
-            pMat.color = new Color(0.12f, 0.12f, 0.14f);
-            if (pMat.HasProperty("_BaseColor")) pMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.14f));
-            if (pMat.HasProperty("_Metallic")) pMat.SetFloat("_Metallic", 0.6f);
-            if (pMat.HasProperty("_Smoothness")) pMat.SetFloat("_Smoothness", 0.8f);
+            Color pedCol = new Color(0.30f, 0.19f, 0.11f);
+            pMat.color = pedCol;
+            if (pMat.HasProperty("_BaseColor")) pMat.SetColor("_BaseColor", pedCol);
+            if (pMat.HasProperty("_Metallic")) pMat.SetFloat("_Metallic", 0f);
+            if (pMat.HasProperty("_Smoothness")) pMat.SetFloat("_Smoothness", 0.3f);
             pRend.material = pMat;
             data.pedestalObj = pedestal;
 
@@ -301,8 +304,8 @@ namespace AuraKitchen
             GameObject neonRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             neonRing.name = "Neon_Ring";
             neonRing.transform.SetParent(stationRoot.transform, false);
-            neonRing.transform.localPosition = new Vector3(0, 0.125f, 0);
-            neonRing.transform.localScale = new Vector3(1.46f, 0.012f, 1.46f);
+            neonRing.transform.localPosition = new Vector3(0, 0.045f, 0);
+            neonRing.transform.localScale = new Vector3(1.52f, 0.03f, 1.52f); // wider than the pedestal: only a glowing rim shows
             Destroy(neonRing.GetComponent<Collider>());
 
             Renderer nRend = neonRing.GetComponent<Renderer>();
@@ -313,7 +316,7 @@ namespace AuraKitchen
             if (nMat.HasProperty("_EmissionColor"))
             {
                 nMat.EnableKeyword("_EMISSION");
-                nMat.SetColor("_EmissionColor", neonColor * 2.2f);
+                nMat.SetColor("_EmissionColor", neonColor * 1.3f);
             }
             nRend.material = nMat;
             data.neonRingObj = neonRing;
@@ -325,13 +328,13 @@ namespace AuraKitchen
             Light pLight = lightObj.AddComponent<Light>();
             pLight.type = LightType.Point;
             pLight.color = neonColor;
-            pLight.range = 3.2f;
-            pLight.intensity = 1.8f;
+            pLight.range = 2.8f;
+            pLight.intensity = 1.1f;
             pLight.shadows = LightShadows.None;
             data.spotLight = pLight;
 
             // 4. Instantiate 3D Chef Model
-            GameObject chef = SpawnChefModel(slot, stationRoot.transform);
+            GameObject chef = SpawnChefModel(slot, stationRoot.transform, data.chefMats);
             data.chefModelObj = chef;
             if (chef != null)
             {
@@ -369,7 +372,7 @@ namespace AuraKitchen
             return data;
         }
 
-        private GameObject SpawnChefModel(int slot, Transform parent)
+        private GameObject SpawnChefModel(int slot, Transform parent, List<Material> matsOut)
         {
             GameObject prefab = Resources.Load<GameObject>("PlayerVisual");
             GameObject chefObj = null;
@@ -394,7 +397,7 @@ namespace AuraKitchen
             chefObj.name = $"ChefModel_P{slot + 1}";
             chefObj.transform.localPosition = new Vector3(0, 0.13f, 0);
             chefObj.transform.localRotation = Quaternion.identity;
-            chefObj.transform.localScale = Vector3.one * 1.25f;
+            chefObj.transform.localScale = Vector3.one * 1.0f;
 
             MeshRenderer[] renderers = chefObj.GetComponentsInChildren<MeshRenderer>(true);
             foreach (var r in renderers)
@@ -410,6 +413,7 @@ namespace AuraKitchen
                     if (instMat.HasProperty("_BaseColor")) instMat.SetColor("_BaseColor", SlotNeonColors[slot]);
                     if (instMat.HasProperty("_Color")) instMat.SetColor("_Color", SlotNeonColors[slot]);
                     r.material = instMat;
+                    if (matsOut != null) matsOut.Add(instMat);
                 }
             }
 
@@ -432,7 +436,8 @@ namespace AuraKitchen
             if (occupied)
             {
                 if (data.chefModelObj != null) data.chefModelObj.SetActive(true);
-                if (data.spotLight != null) data.spotLight.intensity = 2.2f;
+                TintChef(data, SlotNeonColors[slot]);
+                if (data.spotLight != null) data.spotLight.intensity = 1.6f;
 
                 if (data.overhead3DText != null)
                 {
@@ -449,12 +454,14 @@ namespace AuraKitchen
             else
             {
                 // Slot is open: hide chef model, show a quiet invite marker
-                if (data.chefModelObj != null) data.chefModelObj.SetActive(false);
-                if (data.spotLight != null) data.spotLight.intensity = 0.8f;
+                // Empty seat: a dark silhouette of the chef that will sit here
+                if (data.chefModelObj != null) data.chefModelObj.SetActive(true);
+                TintChef(data, new Color(0.13f, 0.09f, 0.07f));
+                if (data.spotLight != null) data.spotLight.intensity = 0.5f;
 
                 if (data.overhead3DText != null)
                 {
-                    data.overhead3DText.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                    data.overhead3DText.transform.localPosition = new Vector3(0f, NameplateHeight, 0f);
                     data.overhead3DText.text =
                         "<size=62%><color=#" + dim + ">" + slotRoles[slot] + "</color></size>\n" +
                         "<size=78%><color=#" + ColorUtility.ToHtmlStringRGB(AuraTheme.Amber) + ">+ INVITE</color></size>";
@@ -464,6 +471,18 @@ namespace AuraKitchen
             if (occupied && data.overhead3DText != null)
             {
                 data.overhead3DText.transform.localPosition = new Vector3(0f, NameplateHeight, 0f);
+            }
+        }
+
+        private static void TintChef(SquadSlotData data, Color c)
+        {
+            for (int i = 0; i < data.chefMats.Count; i++)
+            {
+                Material m = data.chefMats[i];
+                if (m == null) continue;
+                m.color = c;
+                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+                if (m.HasProperty("_Color")) m.SetColor("_Color", c);
             }
         }
 
@@ -627,6 +646,7 @@ namespace AuraKitchen
         {
             initialScale = transform.localScale;
             initialPos = transform.localPosition;
+            transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             seed = slot * 1.37f;
             breatheTimer = seed;
             lookTimer = UnityEngine.Random.Range(1f, 3.5f);
@@ -654,7 +674,7 @@ namespace AuraKitchen
                 lookTimer = UnityEngine.Random.Range(2.5f, 5f);
             }
             currentHeadAngle = Mathf.Lerp(currentHeadAngle, targetHeadAngle, Time.deltaTime * 4f);
-            transform.localRotation = Quaternion.Euler(0, currentHeadAngle, 0);
+            transform.localRotation = Quaternion.Euler(0f, 180f + currentHeadAngle, 0f);
         }
     }
 }
