@@ -369,7 +369,7 @@ namespace AuraKitchen
 
             // Glass scoreboard (Top-Right, clear of orders on top-left)
             GameObject board = AuraTheme.CreatePanel(scoreboardCanvasObj.transform, "Challenge_Scoreboard",
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -20f),
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -84f),
                 new Vector2(ScoreboardWidth, ScoreboardHeaderH + ScoreboardRowH * 4 + 10f),
                 AuraTheme.PanelFill, AuraTheme.Stroke);
             board.GetComponent<Image>().raycastTarget = false;

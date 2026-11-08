@@ -106,28 +106,28 @@ public class GameEndUI : MonoBehaviour
 
         if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
         {
-            ratingText = "<color=#ffd700>MULTIPLAYER CLASH COMPLETED</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">MULTIPLAYER CLASH COMPLETED</color>";
             rankTitle = AuraOnlineMultiplayerManager.Instance.GetChallengeWinnerSummary();
         }
         else if (plates >= 5)
         {
-            ratingText = "<color=#ffd700>PERFORMANCE: 3-STAR EXCELLENCE</color>";
-            rankTitle = "<color=#ffd700>RANK: MASTER OF AURA</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">PERFORMANCE: 3-STAR EXCELLENCE</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">RANK: MASTER OF AURA</color>";
         }
         else if (plates >= 3)
         {
-            ratingText = "<color=#ffd700>PERFORMANCE: 2-STAR GREAT</color>";
-            rankTitle = "<color=#00e5ff>RANK: EXECUTIVE SOUS-CHEF</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">PERFORMANCE: 2-STAR GREAT</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">RANK: EXECUTIVE SOUS-CHEF</color>";
         }
         else if (plates >= 1)
         {
-            ratingText = "<color=#ffaa00>PERFORMANCE: 1-STAR PASSED</color>";
-            rankTitle = "<color=#ffaa00>RANK: CERTIFIED LINE COOK</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">PERFORMANCE: 1-STAR PASSED</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">RANK: CERTIFIED LINE COOK</color>";
         }
         else
         {
-            ratingText = "<color=#888888>PERFORMANCE: UNRANKED</color>";
-            rankTitle = "<color=#ff6666>RANK: KITCHEN APPRENTICE</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.TextSecondary) + ">PERFORMANCE: UNRANKED</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Danger) + ">RANK: KITCHEN APPRENTICE</color>";
         }
 
         if (modernStarsText != null) modernStarsText.text = ratingText;
@@ -150,120 +150,57 @@ public class GameEndUI : MonoBehaviour
 
         // 1. Dark Backdrop
         Image bgImg = modernModalObj.AddComponent<Image>();
-        bgImg.color = new Color(0f, 0f, 0f, 0.88f);
+        bgImg.color = AuraTheme.Scrim;
 
-        // 2. Center Card (High-res charcoal)
-        GameObject card = new GameObject("Card_Container");
-        card.transform.SetParent(modernModalObj.transform, false);
-        RectTransform cardRt = card.AddComponent<RectTransform>();
-        cardRt.anchorMin = new Vector2(0.5f, 0.5f);
-        cardRt.anchorMax = new Vector2(0.5f, 0.5f);
-        cardRt.pivot = new Vector2(0.5f, 0.5f);
-        cardRt.sizeDelta = new Vector2(1040, 720);
-
-        Image cardImg = card.AddComponent<Image>();
-        cardImg.color = new Color(0.18f, 0.18f, 0.18f, 0.98f);
-
-        Outline cardOutline = card.AddComponent<Outline>();
-        cardOutline.effectColor = new Color(0.40f, 0.40f, 0.40f, 1f);
-        cardOutline.effectDistance = new Vector2(3, -3);
+        // 2. Center glass card
+        GameObject card = AuraTheme.CreatePanel(modernModalObj.transform, "Card_Container",
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            Vector2.zero, new Vector2(1040, 720), AuraTheme.PanelFill, AuraTheme.Stroke);
 
         // Title
-        CreateText(card, "AURA KITCHEN - SHIFT COMPLETED!", 32, FontStyles.Bold,
-            new Vector2(0, 310), new Vector2(900, 48), Color.white);
+        CreateText(card, "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.Amber) + ">KITCHEN</color>  -  SHIFT COMPLETED", 32, FontStyles.Bold,
+            new Vector2(0, 310), new Vector2(900, 48), AuraTheme.TextPrimary);
 
         CreateText(card, "Restaurant Performance & Ratings", 18, FontStyles.Normal,
-            new Vector2(0, 270), new Vector2(800, 30), new Color(0.75f, 0.75f, 0.75f));
+            new Vector2(0, 270), new Vector2(800, 30), AuraTheme.TextSecondary);
 
         // Performance Rating & Chef Rank
         modernStarsText = CreateText(card, "PERFORMANCE: 3-STAR EXCELLENCE", 26, FontStyles.Bold,
-            new Vector2(0, 205), new Vector2(800, 50), new Color(1.0f, 0.85f, 0.2f));
+            new Vector2(0, 205), new Vector2(800, 50), AuraTheme.Gold);
 
         modernRankTitleText = CreateText(card, "RANK: MASTER OF AURA", 24, FontStyles.Bold,
-            new Vector2(0, 150), new Vector2(800, 40), Color.white);
+            new Vector2(0, 150), new Vector2(800, 40), AuraTheme.TextPrimary);
 
         // 4 Stat Cards
-        CreateStatTile(card, "DISHES SERVED", "0 Dishes", new Vector2(-250, 45), out modernPlatesValText);
-        CreateStatTile(card, "TOTAL AURA SCORE", "0 PTS", new Vector2(250, 45), out modernScoreValText);
-        CreateStatTile(card, "MAX COMBO STREAK", "x1", new Vector2(-250, -85), out modernStreakValText);
-        CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), out modernEfficiencyValText);
+        CreateStatTile(card, "DISHES SERVED", "0 Dishes", new Vector2(-250, 45), AuraIcon.Cloche, AuraTheme.Cyan, out modernPlatesValText);
+        CreateStatTile(card, "TOTAL AURA SCORE", "0 PTS", new Vector2(250, 45), AuraIcon.Star, AuraTheme.Gold, out modernScoreValText);
+        CreateStatTile(card, "MAX COMBO STREAK", "x1", new Vector2(-250, -85), AuraIcon.Flame, AuraTheme.Ember, out modernStreakValText);
+        CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), AuraIcon.Check, AuraTheme.Success, out modernEfficiencyValText);
 
         // Buttons
-        CreateButton(card, "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
-            new Color(0.18f, 0.58f, 0.28f), PlayAgainAction, 24);
+        AuraTheme.CreateButton(card.transform, "Btn_PlayAgain", "PLAY AGAIN", new Vector2(-220, -250), new Vector2(400, 80),
+            AuraTheme.ButtonStyle.Success, PlayAgainAction, 24, AuraIcons.Get(AuraIcon.Check));
 
-        CreateButton(card, "MAIN MENU", new Vector2(220, -250), new Vector2(400, 80),
-            new Color(0.28f, 0.28f, 0.28f), MainMenuAction, 24);
+        AuraTheme.CreateButton(card.transform, "Btn_MainMenu", "MAIN MENU", new Vector2(220, -250), new Vector2(400, 80),
+            AuraTheme.ButtonStyle.Ghost, MainMenuAction, 24, AuraIcons.Get(AuraIcon.Plate));
 
         modernModalObj.SetActive(false);
     }
 
-    private void CreateStatTile(GameObject parent, string title, string defaultVal, Vector2 pos, out TextMeshProUGUI valText)
+    private void CreateStatTile(GameObject parent, string title, string defaultVal, Vector2 pos, AuraIcon icon, Color iconColor, out TextMeshProUGUI valText)
     {
-        GameObject tile = new GameObject("Tile_" + title);
-        tile.transform.SetParent(parent.transform, false);
-        RectTransform rt = tile.AddComponent<RectTransform>();
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(460, 100);
+        GameObject tile = AuraTheme.CreatePanel(parent.transform, "Tile_" + title,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            pos, new Vector2(460, 100), AuraTheme.PanelRaised, AuraTheme.StrokeSoft, false);
 
-        Image img = tile.AddComponent<Image>();
-        img.color = new Color(0.12f, 0.12f, 0.12f, 0.95f);
+        AuraTheme.CreateIcon(tile.transform, AuraIcons.Get(icon), new Vector2(-190, 0), 48f, iconColor);
 
-        Outline outline = tile.AddComponent<Outline>();
-        outline.effectColor = new Color(0.28f, 0.28f, 0.28f, 0.8f);
-
-        CreateText(tile, title, 16, FontStyles.Bold, new Vector2(0, 22), new Vector2(440, 28), new Color(0.70f, 0.70f, 0.70f));
-        valText = CreateText(tile, defaultVal, 28, FontStyles.Bold, new Vector2(0, -16), new Vector2(440, 42), Color.white);
+        CreateText(tile, title, 16, FontStyles.Bold, new Vector2(40, 22), new Vector2(340, 28), AuraTheme.TextSecondary);
+        valText = CreateText(tile, defaultVal, 28, FontStyles.Bold, new Vector2(40, -16), new Vector2(340, 42), AuraTheme.TextPrimary);
     }
 
     private TextMeshProUGUI CreateText(GameObject parent, string text, float fontSize, FontStyles style, Vector2 pos, Vector2 size, Color color)
     {
-        GameObject obj = new GameObject("Text");
-        obj.transform.SetParent(parent.transform, false);
-        RectTransform rt = obj.AddComponent<RectTransform>();
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = size;
-
-        TextMeshProUGUI tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.fontStyle = style;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = color;
-        tmp.raycastTarget = false;
-        return tmp;
-    }
-
-    private void CreateButton(GameObject parent, string label, Vector2 pos, Vector2 size, Color bgColor, Action onClick, float fontSize)
-    {
-        GameObject btnObj = new GameObject("Btn_" + label);
-        btnObj.transform.SetParent(parent.transform, false);
-        RectTransform rt = btnObj.AddComponent<RectTransform>();
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = size;
-
-        Image img = btnObj.AddComponent<Image>();
-        img.color = bgColor;
-
-        Outline outline = btnObj.AddComponent<Outline>();
-        outline.effectColor = new Color(0.45f, 0.45f, 0.45f, 0.8f);
-
-        Button btn = btnObj.AddComponent<Button>();
-        btn.onClick.AddListener(() => onClick?.Invoke());
-
-        GameObject txtObj = new GameObject("Text");
-        txtObj.transform.SetParent(btnObj.transform, false);
-        RectTransform trt = txtObj.AddComponent<RectTransform>();
-        trt.anchorMin = Vector2.zero;
-        trt.anchorMax = Vector2.one;
-        trt.sizeDelta = Vector2.zero;
-
-        TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
-        tmp.text = label;
-        tmp.fontSize = fontSize;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = Color.white;
-        tmp.raycastTarget = false;
+        return AuraTheme.CreateText(parent.transform, text, fontSize, style, pos, size, color);
     }
 }

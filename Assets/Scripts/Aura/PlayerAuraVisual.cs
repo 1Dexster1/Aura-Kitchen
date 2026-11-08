@@ -7,13 +7,7 @@ namespace AuraKitchen
     public class PlayerAuraVisual : MonoBehaviour
     {
         [Header("Aura Colors")]
-        public static readonly Color[] AuraColors = new Color[]
-        {
-            new Color(1.0f, 0.18f, 0.18f, 1.0f), // P1: Ruby Red
-            new Color(0.12f, 0.55f, 1.0f, 1.0f),  // P2: Sapphire Blue
-            new Color(0.08f, 0.85f, 0.35f, 1.0f), // P3: Emerald Green
-            new Color(1.0f, 0.78f, 0.12f, 1.0f)   // P4: Amber Gold
-        };
+        public static readonly Color[] AuraColors = AuraTheme.ChefColors;
 
         private int playerIndex = 0;
         private string chefDisplayName = "";
