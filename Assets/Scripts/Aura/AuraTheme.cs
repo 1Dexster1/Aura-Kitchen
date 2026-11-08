@@ -56,6 +56,9 @@ namespace AuraKitchen
         {
             get
             {
+                // Drop a TMP font asset at Assets/Resources/Fonts/AuraFont.asset to restyle the whole game.
+                if (cachedFont == null)
+                    cachedFont = Resources.Load<TMP_FontAsset>("Fonts/AuraFont");
                 if (cachedFont == null)
                     cachedFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
                 return cachedFont;

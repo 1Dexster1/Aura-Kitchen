@@ -6,6 +6,7 @@ const fs = require('fs');
 const { Server } = require('colyseus');
 const { monitor } = require('@colyseus/monitor');
 const { KitchenRoom } = require('./KitchenRoom');
+const { RoomStore, publicRoom } = require('./rooms');
 
 const PORT = process.env.PORT || 30015;
 const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard.json');
@@ -37,176 +38,91 @@ try {
   console.error('[Leaderboard] File load error:', err);
 }
 
-// Active Rooms In-Memory Store
-const activeRooms = new Map();
-
+// Active rooms live in memory; all rules (auth, stale cleanup, rev counter) are in rooms.js
+const store = new RoomStore();
 setInterval(() => {
-  const now = Date.now();
-  for (const [code, room] of activeRooms.entries()) {
-    if (now - room.createdAt > 3 * 3600 * 1000) {
-      activeRooms.delete(code);
-    }
-  }
-}, 60000);
+  const removed = store.sweep();
+  if (removed > 0) console.log(`[Room API] Swept ${removed} silent player(s)`);
+}, 2000);
+
+function fail(res, result) {
+  return res.status(result.status || 400).json({ success: false, error: result.error });
+}
+
+app.get('/api/ping', (req, res) => {
+  res.json({ success: true, t: Date.now() });
+});
 
 app.post('/api/room/create', (req, res) => {
-  const code = (req.body.code || 'AUR4').toUpperCase().trim();
-  const hostName = (req.body.hostName || 'Chef Ruby').trim();
-
-  const room = {
-    code,
-    host: hostName,
-    isPlaying: false,
-    createdAt: Date.now(),
-    players: [
-      { slot: 0, name: hostName, role: 'Chef Ruby (P1)', isHost: true, joinedAt: Date.now() }
-    ]
-  };
-
-  activeRooms.set(code, room);
-  console.log(`[Room API] Room ${code} created by ${hostName}`);
-  res.json({ success: true, code, slot: 0, room });
+  const result = store.create(req.body.code, req.body.hostName);
+  if (!result.ok) return fail(res, result);
+  console.log(`[Room API] Room ${result.room.code} created by ${result.room.host}`);
+  res.json({ success: true, code: result.room.code, slot: result.slot, token: result.token, room: publicRoom(result.room) });
 });
 
 app.post('/api/room/join', (req, res) => {
-  const code = (req.body.code || '').toUpperCase().trim();
-  const playerName = (req.body.playerName || '').trim();
-
-  if (!code) {
-    return res.status(400).json({ success: false, error: 'Room code is required' });
-  }
-
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found. Check the code!' });
-  }
-
-  if (room.isPlaying) {
-    return res.status(400).json({ success: false, error: 'Match already started in this room' });
-  }
-
-  if (room.players.length >= 4) {
-    return res.status(400).json({ success: false, error: 'Room is full (max 4 players)' });
-  }
-
-  const occupied = new Set(room.players.map(p => p.slot));
-  let slot = 0;
-  while (occupied.has(slot) && slot < 4) slot++;
-
-  const chefNames = ['Chef Ruby (P1)', 'Chef Sapphire (P2)', 'Chef Emerald (P3)', 'Chef Amber (P4)'];
-  const assignedName = playerName || chefNames[slot];
-
-  const player = {
-    slot,
-    name: assignedName,
-    role: chefNames[slot],
-    isHost: false,
-    joinedAt: Date.now()
-  };
-
-  room.players.push(player);
-  console.log(`[Room API] ${assignedName} joined Room ${code} as slot ${slot} (${room.players.length}/4)`);
-  res.json({ success: true, code, slot, room });
+  const result = store.join(req.body.code, req.body.playerName);
+  if (!result.ok) return fail(res, result);
+  const me = result.room.players.find(p => p.slot === result.slot);
+  console.log(`[Room API] ${me.name} joined Room ${result.room.code} as slot ${result.slot} (${result.room.players.length}/4)`);
+  res.json({ success: true, code: result.room.code, slot: result.slot, token: result.token, room: publicRoom(result.room) });
 });
 
+// Optional ?slot=&token= makes this poll count as a heartbeat for lobby guests/hosts.
 app.get('/api/room/:code', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found' });
-  }
-  res.json({ success: true, room });
+  const slot = req.query.slot;
+  const token = typeof req.query.token === 'string' ? req.query.token : undefined;
+  const result = store.get(req.params.code, slot, token);
+  if (!result.ok) return fail(res, result);
+  const room = publicRoom(result.room);
+  res.json({ success: true, isPlaying: room.isPlaying, rev: room.rev, players: room.players, room });
 });
 
 app.post('/api/room/:code/start', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found' });
-  }
-
-  room.isPlaying = true;
-  room.startedAt = Date.now();
-  console.log(`[Room API] Shift started for Room ${code} with ${room.players.length} chefs!`);
-  res.json({ success: true, isPlaying: true, room });
+  const result = store.start(req.params.code, req.body.slot, req.body.token);
+  if (!result.ok) return fail(res, result);
+  console.log(`[Room API] Shift started for Room ${result.room.code} with ${result.room.players.length} chefs!`);
+  const room = publicRoom(result.room);
+  res.json({ success: true, isPlaying: true, rev: room.rev, room });
 });
 
+// High-frequency endpoint. Replies with a tiny body when nothing changed since the client's `rev`.
 app.post('/api/room/:code/sync', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found' });
+  const result = store.sync(req.params.code, req.body);
+  if (!result.ok) return fail(res, result);
+  if (result.unchanged) {
+    return res.json({ success: true, changed: false, rev: result.rev, isPlaying: result.isPlaying, serverTime: Date.now() });
   }
-
-  const { slot, x, z, rotY, isWalking, dishes, score } = req.body;
-  const p = room.players.find(pl => pl.slot === Number(slot));
-  if (p) {
-    if (typeof x === 'number') p.x = x;
-    if (typeof z === 'number') p.z = z;
-    if (typeof rotY === 'number') p.rotY = rotY;
-    if (typeof isWalking === 'boolean') p.isWalking = isWalking;
-    if (typeof dishes === 'number') p.dishes = dishes;
-    if (typeof score === 'number') p.score = score;
-    p.lastSeen = Date.now();
-  }
-
   res.json({
     success: true,
-    isPlaying: room.isPlaying,
-    players: room.players
+    changed: true,
+    rev: result.rev,
+    isPlaying: result.isPlaying,
+    serverTime: Date.now(),
+    players: publicRoom(result.room).players
   });
 });
 
 app.post('/api/room/:code/deliver', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found' });
+  const result = store.deliver(req.params.code, req.body);
+  if (!result.ok) return fail(res, result);
+  if (!result.duplicate) {
+    const p = result.room.players.find(pl => pl.slot === Number(req.body.slot));
+    console.log(`[Room ${result.room.code}] ${p.name} delivered ${result.dishName}! (Dishes: ${p.dishes}, Score: ${p.score})`);
   }
-
-  const { slot, dishName, earnedPoints } = req.body;
-  const p = room.players.find(pl => pl.slot === Number(slot));
-  if (p) {
-    p.dishes = (p.dishes || 0) + 1;
-    p.score = (p.score || 0) + (Number(earnedPoints) || 100);
-    room.totalDishes = (room.totalDishes || 0) + 1;
-    console.log(`[Room ${code}] ${p.name} delivered ${dishName}! (Total dishes: ${p.dishes}, Score: ${p.score})`);
-  }
-
-  res.json({
-    success: true,
-    players: room.players,
-    totalDishes: room.totalDishes
-  });
+  const room = publicRoom(result.room);
+  res.json({ success: true, rev: room.rev, players: room.players, totalDishes: result.room.totalDishes });
 });
 
 app.post('/api/room/:code/reset', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const room = activeRooms.get(code);
-  if (!room) {
-    return res.status(404).json({ success: false, error: 'Room not found' });
-  }
-  room.isPlaying = false;
-  room.startedAt = null;
-  room.totalDishes = 0;
-  for (const p of room.players) {
-    p.dishes = 0;
-    p.score = 0;
-  }
-  console.log(`[Room API] Room ${code} reset to lobby state`);
-  res.json({ success: true, room });
+  const result = store.reset(req.params.code, req.body.slot, req.body.token);
+  if (!result.ok) return fail(res, result);
+  console.log(`[Room API] Room ${result.room.code} reset to lobby state`);
+  res.json({ success: true, room: publicRoom(result.room) });
 });
 
 app.post('/api/room/:code/leave', (req, res) => {
-  const code = req.params.code.toUpperCase().trim();
-  const slot = Number(req.body.slot);
-  const room = activeRooms.get(code);
-  if (room) {
-    room.players = room.players.filter(p => p.slot !== slot);
-    if (room.players.length === 0) {
-      activeRooms.delete(code);
-    }
-  }
+  store.leave(req.params.code, req.body.slot, req.body.token);
   res.json({ success: true });
 });
 
@@ -216,6 +132,7 @@ app.get('/api/status', (req, res) => {
     framework: 'Colyseus Game Server',
     game: 'Aura Kitchen',
     version: '1.0.0',
+    rooms: store.rooms.size,
     uptime: process.uptime(),
     memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
   });
