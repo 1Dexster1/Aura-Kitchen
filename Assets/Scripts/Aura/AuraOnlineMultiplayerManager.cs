@@ -41,6 +41,20 @@ namespace AuraKitchen
         // Challenge Scoreboard UI
         private GameObject scoreboardCanvasObj;
         private TextMeshProUGUI scoreboardText;
+        private RectTransform scoreboardRect;
+        private readonly ScoreRow[] scoreRows = new ScoreRow[4];
+        private const float ScoreboardWidth = 400f;
+        private const float ScoreboardHeaderH = 52f;
+        private const float ScoreboardRowH = 46f;
+
+        private class ScoreRow
+        {
+            public GameObject root;
+            public Image bg;
+            public TextMeshProUGUI nameText;
+            public TextMeshProUGUI statText;
+            public GameObject youPill;
+        }
         private TextMeshProUGUI announcementText;
         private Coroutine announceCoroutine;
 
@@ -86,7 +100,7 @@ namespace AuraKitchen
                 string myChefName = PlayerPrefs.GetString("Aura_PlayerName", "");
                 if (string.IsNullOrEmpty(myChefName))
                 {
-                    string[] chefNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
+                    string[] chefNames = AuraTheme.ChefNames;
                     myChefName = chefNames[Mathf.Clamp(MySlotIndex, 0, 3)];
                 }
                 vis.SetupPlayerVisual(MySlotIndex, myChefName);
@@ -353,66 +367,125 @@ namespace AuraKitchen
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            // Scoreboard Container (Top-Right, completely clear of orders on top-left)
-            GameObject board = new GameObject("Challenge_Scoreboard");
-            board.transform.SetParent(scoreboardCanvasObj.transform, false);
-            RectTransform brt = board.AddComponent<RectTransform>();
-            brt.anchorMin = new Vector2(1f, 1f);
-            brt.anchorMax = new Vector2(1f, 1f);
-            brt.pivot = new Vector2(1f, 1f);
-            brt.anchoredPosition = new Vector2(-24, -20);
-            brt.sizeDelta = new Vector2(360, 110);
+            // Glass scoreboard (Top-Right, clear of orders on top-left)
+            GameObject board = AuraTheme.CreatePanel(scoreboardCanvasObj.transform, "Challenge_Scoreboard",
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -84f),
+                new Vector2(ScoreboardWidth, ScoreboardHeaderH + ScoreboardRowH * 4 + 10f),
+                AuraTheme.PanelFill, AuraTheme.Stroke);
+            board.GetComponent<Image>().raycastTarget = false;
+            scoreboardRect = board.GetComponent<RectTransform>();
 
-            Image bImg = board.AddComponent<Image>();
-            bImg.color = new Color(0.12f, 0.12f, 0.12f, 0.88f);
-            bImg.raycastTarget = false;
+            // Header: trophy + title + room code
+            Image trophy = AuraTheme.CreateIcon(board.transform, AuraIcons.Get(AuraIcon.Trophy), Vector2.zero, 26f, AuraTheme.Gold);
+            AuraTheme.PlaceTopLeft(trophy.rectTransform, 16f, 13f, 26f, 26f);
 
-            Outline bOutline = board.AddComponent<Outline>();
-            bOutline.effectColor = new Color(0.35f, 0.35f, 0.35f, 0.8f);
+            TextMeshProUGUI title = AuraTheme.CreateText(board.transform, "KITCHEN CLASH", 17f, FontStyles.Bold,
+                Vector2.zero, Vector2.zero, AuraTheme.Cyan, TextAlignmentOptions.Left);
+            AuraTheme.PlaceTopLeft(title.rectTransform, 50f, 10f, 190f, 32f);
 
-            GameObject textObj = new GameObject("Text");
-            textObj.transform.SetParent(board.transform, false);
-            RectTransform trt = textObj.AddComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = new Vector2(12, 6);
-            trt.offsetMax = new Vector2(-12, -6);
+            scoreboardText = AuraTheme.CreateText(board.transform, "", 15f, FontStyles.Bold,
+                Vector2.zero, Vector2.zero, AuraTheme.TextSecondary, TextAlignmentOptions.Right);
+            AuraTheme.PlaceTopLeft(scoreboardText.rectTransform, ScoreboardWidth - 16f - 130f, 10f, 130f, 32f);
 
-            scoreboardText = textObj.AddComponent<TextMeshProUGUI>();
-            scoreboardText.fontSize = 17;
-            scoreboardText.alignment = TextAlignmentOptions.TopLeft;
-            scoreboardText.color = Color.white;
-            scoreboardText.raycastTarget = false;
+            for (int i = 0; i < 4; i++)
+            {
+                ScoreRow row = new ScoreRow();
+                Color chefColor = AuraTheme.ChefColor(i);
+
+                GameObject rowObj = AuraTheme.CreatePanel(board.transform, "Row_" + i,
+                    new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero,
+                    new Vector2(ScoreboardWidth - 20f, ScoreboardRowH - 6f),
+                    AuraTheme.PanelRaised, Color.clear, false);
+                rowObj.GetComponent<Image>().raycastTarget = false;
+                row.root = rowObj;
+                row.bg = rowObj.GetComponent<Image>();
+
+                Image bar = AuraTheme.CreateIcon(rowObj.transform, AuraTheme.RoundedFill, Vector2.zero, 0f, chefColor);
+                bar.type = Image.Type.Sliced;
+                AuraTheme.PlaceTopLeft(bar.rectTransform, 0f, 0f, 6f, ScoreboardRowH - 6f);
+
+                Image hat = AuraTheme.CreateIcon(rowObj.transform, AuraIcons.Get(AuraIcon.ChefHat), Vector2.zero, 24f, chefColor);
+                AuraTheme.PlaceTopLeft(hat.rectTransform, 16f, 8f, 24f, 24f);
+
+                row.nameText = AuraTheme.CreateText(rowObj.transform, "", 16f, FontStyles.Bold,
+                    Vector2.zero, Vector2.zero, AuraTheme.TextPrimary, TextAlignmentOptions.Left);
+                row.nameText.richText = false;
+                row.nameText.overflowMode = TextOverflowModes.Ellipsis;
+                AuraTheme.PlaceTopLeft(row.nameText.rectTransform, 48f, 0f, 112f, ScoreboardRowH - 6f);
+
+                GameObject pill = AuraTheme.CreatePanel(rowObj.transform, "YouPill",
+                    new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero,
+                    new Vector2(38f, 20f), chefColor, Color.clear, false);
+                pill.GetComponent<Image>().raycastTarget = false;
+                AuraTheme.PlaceTopLeft(pill.GetComponent<RectTransform>(), 164f, 10f, 38f, 20f);
+                TextMeshProUGUI pillText = AuraTheme.CreateText(pill.transform, "YOU", 11f, FontStyles.Bold,
+                    Vector2.zero, Vector2.zero, new Color(0.04f, 0.06f, 0.1f, 1f));
+                pillText.rectTransform.anchorMin = Vector2.zero;
+                pillText.rectTransform.anchorMax = Vector2.one;
+                pillText.rectTransform.offsetMin = Vector2.zero;
+                pillText.rectTransform.offsetMax = Vector2.zero;
+                row.youPill = pill;
+
+                row.statText = AuraTheme.CreateText(rowObj.transform, "", 14f, FontStyles.Normal,
+                    Vector2.zero, Vector2.zero, AuraTheme.TextPrimary, TextAlignmentOptions.Right);
+                AuraTheme.PlaceTopLeft(row.statText.rectTransform, 206f, 0f, ScoreboardWidth - 20f - 206f - 12f, ScoreboardRowH - 6f);
+
+                scoreRows[i] = row;
+            }
 
             UpdateScoreboardDisplay();
         }
 
         private void UpdateScoreboardDisplay()
         {
-            if (scoreboardText == null) return;
-
-            string[] colors = { "#ff4444", "#3388ff", "#22cc66", "#ffaa00" };
-            string[] shortNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
+            if (scoreboardText == null || scoreRows[0] == null) return;
 
             int myDishes = GameManager.Instance != null ? GameManager.Instance.PlateServed : 0;
             int myScore = AuraGameMechanics.Instance != null ? AuraGameMechanics.Instance.CurrentScore : 0;
 
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine($"<b>ROOM {ActiveRoomCode} - KITCHEN CLASH:</b>");
+            scoreboardText.text = "ROOM " + ActiveRoomCode;
 
+            int visible = 0;
             for (int i = 0; i < 4; i++)
             {
-                if (i == MySlotIndex)
+                ScoreRow row = scoreRows[i];
+                bool isMe = i == MySlotIndex;
+                RemoteChefData data = null;
+                bool has = isMe || remoteChefs.TryGetValue(i, out data);
+                row.root.SetActive(has);
+                if (!has) continue;
+
+                string chefName;
+                int dishes;
+                int score;
+                if (isMe)
                 {
-                    sb.AppendLine($"<color={colors[i]}>[YOU] {shortNames[i]}: <b>{myDishes}</b> dishes ({myScore:N0} pts)</color>");
+                    chefName = PlayerPrefs.GetString("Aura_PlayerName", "");
+                    if (string.IsNullOrEmpty(chefName)) chefName = AuraTheme.ChefName(i);
+                    dishes = myDishes;
+                    score = myScore;
                 }
-                else if (remoteChefs.TryGetValue(i, out var data))
+                else
                 {
-                    sb.AppendLine($"<color={colors[i]}>  {shortNames[i]}: <b>{data.dishes}</b> dishes ({data.score:N0} pts)</color>");
+                    chefName = !string.IsNullOrEmpty(data.name) ? data.name : AuraTheme.ChefName(i);
+                    dishes = data.dishes;
+                    score = data.score;
                 }
+
+                RectTransform rrt = row.root.GetComponent<RectTransform>();
+                rrt.anchoredPosition = new Vector2(10f, -(ScoreboardHeaderH + visible * ScoreboardRowH));
+                visible++;
+
+                row.nameText.text = chefName;
+                row.statText.text = "<b>" + dishes + "</b> dishes  <color=" + AuraTheme.Hex(AuraTheme.TextSecondary) + ">" + score.ToString("N0") + " pts</color>";
+                row.youPill.SetActive(isMe);
+                row.bg.color = isMe ? AuraTheme.WithAlpha(AuraTheme.ChefColor(i), 0.24f) : AuraTheme.PanelRaised;
             }
 
-            scoreboardText.text = sb.ToString();
+            if (scoreboardRect != null)
+            {
+                scoreboardRect.sizeDelta = new Vector2(ScoreboardWidth, ScoreboardHeaderH + visible * ScoreboardRowH + 10f);
+            }
         }
 
         public string GetChallengeWinnerSummary()
@@ -423,8 +496,7 @@ namespace AuraKitchen
             string myName = PlayerPrefs.GetString("Aura_PlayerName", "");
             if (string.IsNullOrEmpty(myName))
             {
-                string[] defaultChefNames = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
-                myName = defaultChefNames[Mathf.Clamp(MySlotIndex, 0, 3)];
+                myName = AuraTheme.ChefName(MySlotIndex);
             }
 
             string bestChef = myName;
@@ -450,9 +522,9 @@ namespace AuraKitchen
 
             if (isTie)
             {
-                return "[TIE MATCH] INCREDIBLE TEAMWORK!";
+                return "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">TIE MATCH</color> - incredible teamwork!";
             }
-            return $"[CHALLENGE WINNER] {bestChef} ({maxDishes} Dishes Delivered)!";
+            return "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">CHALLENGE WINNER</color> " + bestChef + " - " + maxDishes + " dishes delivered!";
         }
 
         public void ReturnToLobby()

@@ -85,7 +85,7 @@ namespace AuraKitchen
                 {
                     float pulse = 0.85f + Mathf.PingPong(Time.time * 6f, 0.3f);
                     auraRushBannerText.color = new Color(1f, 0.85f * pulse, 0.2f * pulse);
-                    auraRushBannerText.text = $"[AURA RUSH] 2X SPEED & POINTS ({Mathf.CeilToInt(AuraRushTimeRemaining)}s)";
+                    auraRushBannerText.text = $"AURA RUSH   2X SPEED & POINTS   ({Mathf.CeilToInt(AuraRushTimeRemaining)}s)";
                 }
             }
 
@@ -129,23 +129,23 @@ namespace AuraKitchen
             Color hypeCol;
             if (IsAuraRushActive)
             {
-                hypeMsg = $"[FEVER DELIVERY] +{earned} PTS (+{bonusSec:0}s)";
-                hypeCol = new Color(1f, 0.85f, 0.2f);
+                hypeMsg = $"FEVER DELIVERY  +{earned} PTS (+{bonusSec:0}s)";
+                hypeCol = AuraTheme.Gold;
             }
             else if (ComboStreak >= 3)
             {
-                hypeMsg = $"[COMBO x{ComboStreak}] +{earned} PTS (+{bonusSec:0}s)";
-                hypeCol = new Color(0.2f, 0.95f, 1f);
+                hypeMsg = $"COMBO x{ComboStreak}  +{earned} PTS (+{bonusSec:0}s)";
+                hypeCol = AuraTheme.Cyan;
             }
             else if (ComboStreak == 2)
             {
-                hypeMsg = $"[GOOD STREAK] +{earned} PTS (+{bonusSec:0}s)";
-                hypeCol = new Color(0.3f, 1f, 0.4f);
+                hypeMsg = $"GOOD STREAK  +{earned} PTS (+{bonusSec:0}s)";
+                hypeCol = AuraTheme.Success;
             }
             else
             {
                 hypeMsg = $"PERFECT DISH! +{earned} PTS (+{bonusSec:0}s)";
-                hypeCol = Color.white;
+                hypeCol = AuraTheme.TextPrimary;
             }
 
             ShowHypeText(hypeMsg, hypeCol);
@@ -155,7 +155,7 @@ namespace AuraKitchen
         private void OnOrderFailed(object sender, EventArgs e)
         {
             ResetCombo();
-            ShowHypeText("ORDER FAILED! STREAK LOST", new Color(1f, 0.35f, 0.35f));
+            ShowHypeText("ORDER FAILED! STREAK LOST", AuraTheme.Danger);
         }
 
         private void ActivateAuraRush()
@@ -168,7 +168,7 @@ namespace AuraKitchen
                 auraRushBannerObj.SetActive(true);
             }
 
-            ShowHypeText("[AURA RUSH ACTIVATED!]", new Color(1.0f, 0.80f, 0.1f));
+            ShowHypeText("AURA RUSH ACTIVATED!", AuraTheme.Gold);
         }
 
         private void EndAuraRush()
@@ -192,7 +192,7 @@ namespace AuraKitchen
         {
             if (scoreCardText != null)
             {
-                string comboStr = ComboStreak > 1 ? $" <color=#ffaa00>(x{ComboStreak})</color>" : "";
+                string comboStr = ComboStreak > 1 ? $" <color={AuraTheme.Hex(AuraTheme.Amber)}>(x{ComboStreak})</color>" : "";
                 scoreCardText.text = $"AURA: <b>{CurrentScore:N0}</b>{comboStr}";
             }
         }
@@ -275,22 +275,13 @@ namespace AuraKitchen
             floatingHypeText.raycastTarget = false;
 
             // 2. Persistent Aura Rush Top Banner
-            auraRushBannerObj = new GameObject("AuraRushBanner");
-            auraRushBannerObj.transform.SetParent(mechanicsCanvasObj.transform, false);
-            RectTransform arbRect = auraRushBannerObj.AddComponent<RectTransform>();
-            arbRect.anchorMin = new Vector2(0.5f, 1f);
-            arbRect.anchorMax = new Vector2(0.5f, 1f);
-            arbRect.pivot = new Vector2(0.5f, 1f);
-            arbRect.anchoredPosition = new Vector2(0, -68);
-            arbRect.sizeDelta = new Vector2(700, 40);
-
-            Image arbImg = auraRushBannerObj.AddComponent<Image>();
-            arbImg.color = new Color(0.12f, 0.10f, 0.05f, 0.88f);
-            arbImg.raycastTarget = false;
-
-            Outline arbOutline = auraRushBannerObj.AddComponent<Outline>();
-            arbOutline.effectColor = new Color(1.0f, 0.80f, 0.2f, 0.9f);
-            arbOutline.effectDistance = new Vector2(2, -2);
+            auraRushBannerObj = AuraTheme.CreatePanel(mechanicsCanvasObj.transform, "AuraRushBanner",
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -68), new Vector2(700, 40),
+                new Color32(0x2A, 0x1E, 0x08, 0xEB), AuraTheme.Amber, false);
+            auraRushBannerObj.GetComponent<Image>().raycastTarget = false;
+            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(-322, 0), 24f, AuraTheme.Ember);
+            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(322, 0), 24f, AuraTheme.Ember);
 
             GameObject arTxtObj = new GameObject("Text");
             arTxtObj.transform.SetParent(auraRushBannerObj.transform, false);
@@ -303,38 +294,30 @@ namespace AuraKitchen
             auraRushBannerText.fontSize = 20;
             auraRushBannerText.fontStyle = FontStyles.Bold;
             auraRushBannerText.alignment = TextAlignmentOptions.Center;
-            auraRushBannerText.color = new Color(1.0f, 0.85f, 0.25f);
+            auraRushBannerText.color = AuraTheme.Gold;
             auraRushBannerText.raycastTarget = false;
             auraRushBannerObj.SetActive(false);
 
             // 3. Compact Score Card (Top-Right)
-            scoreCardObj = new GameObject("ScoreCard");
-            scoreCardObj.transform.SetParent(mechanicsCanvasObj.transform, false);
-            RectTransform scRect = scoreCardObj.AddComponent<RectTransform>();
-            scRect.anchorMin = new Vector2(1f, 1f);
-            scRect.anchorMax = new Vector2(1f, 1f);
-            scRect.pivot = new Vector2(1f, 1f);
-            scRect.anchoredPosition = new Vector2(-28, -20);
-            scRect.sizeDelta = new Vector2(260, 48);
-
-            Image scImg = scoreCardObj.AddComponent<Image>();
-            scImg.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
-            scImg.raycastTarget = false;
-
-            Outline scOutline = scoreCardObj.AddComponent<Outline>();
-            scOutline.effectColor = new Color(0.35f, 0.35f, 0.35f, 0.8f);
+            scoreCardObj = AuraTheme.CreatePanel(mechanicsCanvasObj.transform, "ScoreCard",
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-28, -20), new Vector2(260, 48), AuraTheme.PanelFill, AuraTheme.Stroke);
+            scoreCardObj.GetComponent<Image>().raycastTarget = false;
+            AuraTheme.CreateIcon(scoreCardObj.transform, AuraIcons.Get(AuraIcon.Star), new Vector2(-104, 0), 24f, AuraTheme.Gold);
 
             GameObject scTxtObj = new GameObject("Text");
             scTxtObj.transform.SetParent(scoreCardObj.transform, false);
             RectTransform sctRect = scTxtObj.AddComponent<RectTransform>();
             sctRect.anchorMin = Vector2.zero;
             sctRect.anchorMax = Vector2.one;
-            sctRect.sizeDelta = Vector2.zero;
+            sctRect.offsetMin = new Vector2(34f, 0f);
+            sctRect.offsetMax = new Vector2(-8f, 0f);
 
             scoreCardText = scTxtObj.AddComponent<TextMeshProUGUI>();
+            if (AuraTheme.Font != null) scoreCardText.font = AuraTheme.Font;
             scoreCardText.fontSize = 20;
             scoreCardText.alignment = TextAlignmentOptions.Center;
-            scoreCardText.color = Color.white;
+            scoreCardText.color = AuraTheme.TextPrimary;
             scoreCardText.raycastTarget = false;
 
             UpdateScoreDisplay();

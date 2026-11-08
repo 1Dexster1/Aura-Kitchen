@@ -125,7 +125,7 @@ namespace AuraKitchen
 
             tapMarkerImage = tapMarkerObj.AddComponent<Image>();
             tapMarkerImage.sprite = AuraMobileControls.GetCircleSprite();
-            tapMarkerImage.color = new Color(0.2f, 0.85f, 1f, 0f);
+            tapMarkerImage.color = AuraTheme.WithAlpha(AuraTheme.Cyan, 0f);
             tapMarkerImage.raycastTarget = false;
 
             // 2. Minimal Chef Switch Button (bottom-center)
@@ -139,11 +139,24 @@ namespace AuraKitchen
             sRect.sizeDelta = new Vector2(260, 56);
 
             Image sImg = switchChefBtnObj.AddComponent<Image>();
-            sImg.color = new Color(0.18f, 0.18f, 0.18f, 0.90f);
+            sImg.sprite = AuraTheme.RoundedFill;
+            sImg.type = Image.Type.Sliced;
+            sImg.color = AuraTheme.PanelFill;
 
-            Outline sOutline = switchChefBtnObj.AddComponent<Outline>();
-            sOutline.effectColor = new Color(0.4f, 0.4f, 0.4f, 0.8f);
-            sOutline.effectDistance = new Vector2(1, -1);
+            GameObject sRingObj = new GameObject("Stroke");
+            sRingObj.transform.SetParent(switchChefBtnObj.transform, false);
+            RectTransform sRingRt = sRingObj.AddComponent<RectTransform>();
+            sRingRt.anchorMin = Vector2.zero;
+            sRingRt.anchorMax = Vector2.one;
+            sRingRt.offsetMin = Vector2.zero;
+            sRingRt.offsetMax = Vector2.zero;
+            Image sRingImg = sRingObj.AddComponent<Image>();
+            sRingImg.sprite = AuraTheme.RoundedRing;
+            sRingImg.type = Image.Type.Sliced;
+            sRingImg.color = AuraTheme.Stroke;
+            sRingImg.raycastTarget = false;
+
+            switchChefBtnObj.AddComponent<AuraButtonFx>();
 
             Button sBtn = switchChefBtnObj.AddComponent<Button>();
             sBtn.onClick.AddListener(() =>
@@ -181,7 +194,7 @@ namespace AuraKitchen
             if (switchChefBtnText != null && SoloChefController.Instance != null)
             {
                 int current = SoloChefController.Instance.ActiveChefIndex + 1;
-                switchChefBtnText.text = $"ACTIVE: CHEF {current} (TAP TO SWITCH)";
+                switchChefBtnText.text = $"<color={AuraTheme.ChefHex(current - 1)}><b>{AuraTheme.ChefName(current - 1)}</b></color>  <size=70%><color={AuraTheme.Hex(AuraTheme.TextSecondary)}>TAP TO SWITCH</color></size>";
             }
         }
 
@@ -474,7 +487,7 @@ namespace AuraKitchen
                 tapMarkerRect.position = screenPos;
                 tapMarkerRect.sizeDelta = new Vector2(40, 40);
                 tapMarkerAlpha = 0.85f;
-                tapMarkerImage.color = new Color(0.2f, 0.9f, 1f, tapMarkerAlpha);
+                tapMarkerImage.color = AuraTheme.WithAlpha(AuraTheme.Cyan, tapMarkerAlpha);
                 tapMarkerObj.SetActive(true);
             }
         }
@@ -494,7 +507,7 @@ namespace AuraKitchen
                 }
                 else
                 {
-                    tapMarkerImage.color = new Color(0.2f, 0.9f, 1f, tapMarkerAlpha);
+                    tapMarkerImage.color = AuraTheme.WithAlpha(AuraTheme.Cyan, tapMarkerAlpha);
                 }
             }
         }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using AuraKitchen;
 
 public class GameRunningStatUI : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public class GameRunningStatUI : MonoBehaviour
 
     private bool timerRunning = false;
     private Image badgeBackground;
-    private Outline badgeOutline;
+    private Image badgeRing;
 
     private void Start()
     {
@@ -51,20 +52,35 @@ public class GameRunningStatUI : MonoBehaviour
         {
             badgeBackground = parentObj.AddComponent<Image>();
         }
-        badgeBackground.color = new Color(0.08f, 0.11f, 0.18f, 0.90f);
+        badgeBackground.sprite = AuraTheme.RoundedFill;
+        badgeBackground.type = Image.Type.Sliced;
+        badgeBackground.color = AuraTheme.PanelFill;
 
-        badgeOutline = parentObj.GetComponent<Outline>();
-        if (badgeOutline == null)
+        Transform existingRing = parentObj.transform.Find("Stroke");
+        if (existingRing == null)
         {
-            badgeOutline = parentObj.AddComponent<Outline>();
+            GameObject ringObj = new GameObject("Stroke");
+            ringObj.transform.SetParent(parentObj.transform, false);
+            RectTransform ringRt = ringObj.AddComponent<RectTransform>();
+            ringRt.anchorMin = Vector2.zero;
+            ringRt.anchorMax = Vector2.one;
+            ringRt.offsetMin = Vector2.zero;
+            ringRt.offsetMax = Vector2.zero;
+            badgeRing = ringObj.AddComponent<Image>();
+            badgeRing.sprite = AuraTheme.RoundedRing;
+            badgeRing.type = Image.Type.Sliced;
+            badgeRing.raycastTarget = false;
         }
-        badgeOutline.effectColor = new Color(0.18f, 0.28f, 0.45f, 0.8f);
-        badgeOutline.effectDistance = new Vector2(2, -2);
+        else
+        {
+            badgeRing = existingRing.GetComponent<Image>();
+        }
+        badgeRing.color = AuraTheme.Stroke;
 
         timeRemainingText.alignment = TextAlignmentOptions.Center;
         timeRemainingText.fontSize = 24;
         timeRemainingText.fontStyle = FontStyles.Bold;
-        timeRemainingText.color = Color.white;
+        timeRemainingText.color = AuraTheme.TextPrimary;
     }
 
     private void GameManager_OnGameStateChanged(object sender, GameManager.GameStateChangedArg e)
@@ -106,8 +122,8 @@ public class GameRunningStatUI : MonoBehaviour
 
         if (seconds <= 0)
         {
-            timeRemainingText.text = "<color=#ef4444>TIME'S UP</color>";
-            if (badgeOutline != null) badgeOutline.effectColor = new Color(0.9f, 0.2f, 0.2f, 0.9f);
+            timeRemainingText.text = "<color=" + AuraTheme.Hex(AuraTheme.Danger) + ">TIME'S UP</color>";
+            if (badgeRing != null) badgeRing.color = AuraTheme.WithAlpha(AuraTheme.Danger, 0.9f);
             return;
         }
 
@@ -119,18 +135,18 @@ public class GameRunningStatUI : MonoBehaviour
         {
             // Urgency crimson pulse
             float pulse = 0.7f + Mathf.PingPong(Time.time * 5f, 0.3f);
-            timeRemainingText.text = $"<color=#ef4444>TIME  {timeStr}</color>";
-            if (badgeOutline != null) badgeOutline.effectColor = new Color(0.9f, 0.2f, 0.2f, pulse);
+            timeRemainingText.text = "<color=" + AuraTheme.Hex(AuraTheme.Danger) + ">TIME  " + timeStr + "</color>";
+            if (badgeRing != null) badgeRing.color = AuraTheme.WithAlpha(AuraTheme.Danger, pulse);
         }
         else if (seconds <= 30)
         {
-            timeRemainingText.text = $"<color=#fbbf24>TIME  {timeStr}</color>";
-            if (badgeOutline != null) badgeOutline.effectColor = new Color(0.98f, 0.75f, 0.15f, 0.8f);
+            timeRemainingText.text = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">TIME  " + timeStr + "</color>";
+            if (badgeRing != null) badgeRing.color = AuraTheme.WithAlpha(AuraTheme.Amber, 0.85f);
         }
         else
         {
-            timeRemainingText.text = $"<color=#38bdf8>TIME</color>  {timeStr}";
-            if (badgeOutline != null) badgeOutline.effectColor = new Color(0.18f, 0.28f, 0.45f, 0.8f);
+            timeRemainingText.text = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">TIME</color>  " + timeStr;
+            if (badgeRing != null) badgeRing.color = AuraTheme.Stroke;
         }
     }
 }
