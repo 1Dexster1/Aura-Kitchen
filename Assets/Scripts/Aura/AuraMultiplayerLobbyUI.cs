@@ -296,7 +296,7 @@ namespace AuraKitchen
             CreateTMPText(hudTopLeftBar, "<color=#2ecc71>ONLINE</color> | aura.dexster.site", 13, FontStyles.Normal,
                 new Vector2(-60, -14), new Vector2(240, 20), AuraTheme.TextSecondary).alignment = TextAlignmentOptions.Left;
 
-            CreateStyledButton(hudTopLeftBar, "Btn_ChangeName", "EDIT", new Vector2(135, 0), new Vector2(76, 44),
+            CreateStyledButton(hudTopLeftBar, "Btn_ChangeName", "Edit", new Vector2(135, 0), new Vector2(76, 44),
                 new Color32(0x1B, 0x3A, 0x5E, 0xF2), Color.white, ShowNamePromptModal, 14);
 
             // 2. TOP-CENTER: Squad Tabs (Floating Sleek Pills)
@@ -309,30 +309,33 @@ namespace AuraKitchen
             tabRt.anchoredPosition = new Vector2(0, -24);
             tabRt.sizeDelta = new Vector2(660, 56);
 
-            tabHostBtn = CreateStyledButton(hudTopTabsBar, "Tab_Host", "HOST SQUAD", new Vector2(-220, 0), new Vector2(200, 52),
+            tabHostBtn = CreateStyledButton(hudTopTabsBar, "Tab_Host", "Host Squad", new Vector2(-220, 0), new Vector2(200, 52),
                 new Color32(0x12, 0x3A, 0x5C, 0xF2), Color.white, () => SwitchTab("host"), 17).GetComponent<Button>();
 
-            tabJoinBtn = CreateStyledButton(hudTopTabsBar, "Tab_Join", "JOIN SQUAD", new Vector2(0, 0), new Vector2(200, 52),
+            tabJoinBtn = CreateStyledButton(hudTopTabsBar, "Tab_Join", "Join Squad", new Vector2(0, 0), new Vector2(200, 52),
                 new Color32(0x14, 0x1D, 0x30, 0xD9), AuraTheme.TextSecondary, () => SwitchTab("join"), 17).GetComponent<Button>();
 
-            tabSoloBtn = CreateStyledButton(hudTopTabsBar, "Tab_Solo", "SOLO SHIFT", new Vector2(220, 0), new Vector2(200, 52),
+            tabSoloBtn = CreateStyledButton(hudTopTabsBar, "Tab_Solo", "Solo Shift", new Vector2(220, 0), new Vector2(200, 52),
                 new Color32(0x14, 0x1D, 0x30, 0xD9), AuraTheme.TextSecondary, () => SwitchTab("solo"), 17).GetComponent<Button>();
+            SetTabActive(tabHostBtn, true);
+            SetTabActive(tabJoinBtn, false);
+            SetTabActive(tabSoloBtn, false);
 
             // 3. TOP-RIGHT: Room Code Badge with Copy & New (Glowing Gold Edge Card)
             hudTopRightRoomBar = CreateGlassPanel(hudRootObj, "HUD_TopRight", new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1),
                 new Vector2(-28, -24), new Vector2(400, 68), AuraTheme.PanelFill);
 
 
-            CreateTMPText(hudTopRightRoomBar, "ROOM CODE:", 13, FontStyles.Bold,
+            CreateTMPText(hudTopRightRoomBar, "Room code", 13, FontStyles.Bold,
                 new Vector2(-125, 14), new Vector2(120, 20), AuraTheme.TextSecondary);
 
             hostRoomCodeText = CreateTMPText(hudTopRightRoomBar, "AUR4", 28, FontStyles.Bold,
                 new Vector2(-125, -12), new Vector2(120, 32), AuraTheme.Gold);
 
-            CreateStyledButton(hudTopRightRoomBar, "Btn_CopyCode", "COPY", new Vector2(45, 0), new Vector2(90, 44),
+            CreateStyledButton(hudTopRightRoomBar, "Btn_CopyCode", "Copy", new Vector2(45, 0), new Vector2(90, 44),
                 new Color32(0x1B, 0x3A, 0x5E, 0xF2), Color.white, CopyRoomCode, 15);
 
-            CreateStyledButton(hudTopRightRoomBar, "Btn_NewCode", "NEW", new Vector2(145, 0), new Vector2(80, 44),
+            CreateStyledButton(hudTopRightRoomBar, "Btn_NewCode", "New", new Vector2(145, 0), new Vector2(80, 44),
                 new Color32(0x2D, 0x24, 0x52, 0xF2), Color.white, GenerateNewHostRoom, 15);
 
             // 4. BOTTOM-RIGHT: Massive Glowing Action Button (START GAME / WAITING...)
@@ -353,7 +356,7 @@ namespace AuraKitchen
             hcr.anchorMax = Vector2.one;
             hcr.sizeDelta = Vector2.zero;
 
-            hostStartGameBtn = CreateStyledButton(hostViewControls, "Btn_StartGame", "START SHIFT", Vector2.zero, new Vector2(400, 84),
+            hostStartGameBtn = CreateStyledButton(hostViewControls, "Btn_StartGame", "Start Shift", Vector2.zero, new Vector2(400, 84),
                 new Color32(0x12, 0x8A, 0x4E, 0xF5), Color.white, OnHostStartClicked, 26).GetComponent<Button>();
 
 
@@ -386,7 +389,7 @@ namespace AuraKitchen
             blRt.anchoredPosition = new Vector2(36, 36);
             blRt.sizeDelta = new Vector2(260, 80);
 
-            CreateStyledButton(hudBottomLeftArea, "Btn_BackMenu", "BACK TO MENU", Vector2.zero, new Vector2(240, 64),
+            CreateStyledButton(hudBottomLeftArea, "Btn_BackMenu", "Back to Menu", Vector2.zero, new Vector2(240, 64),
                 new Color32(0x7A, 0x1F, 0x2B, 0xEE), Color.white, CloseMultiplayerToMenu, 17);
 
             // 6. FLOATING JOIN DIALOG (Only shown when Tab == "join")
@@ -410,7 +413,7 @@ namespace AuraKitchen
             TextMeshProUGUI ipTmp = CreateTMPText(jBox, "", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66), AuraTheme.Gold);
             joinCodeInput.textComponent = ipTmp;
 
-            joinSubmitBtn = CreateStyledButton(joinModalDialog, "Btn_JoinSubmit", "JOIN SQUAD", new Vector2(0, -75), new Vector2(340, 64),
+            joinSubmitBtn = CreateStyledButton(joinModalDialog, "Btn_JoinSubmit", "Join Squad", new Vector2(0, -75), new Vector2(340, 64),
                 new Color32(0x12, 0x8A, 0x4E, 0xF5), Color.white, OnJoinSubmitClicked, 22).GetComponent<Button>();
 
             joinStatusText = CreateTMPText(joinModalDialog, "", 15, FontStyles.Normal,
@@ -421,35 +424,9 @@ namespace AuraKitchen
 
         private GameObject CreateGlassPanel(GameObject parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 pos, Vector2 size, Color color)
         {
-            GameObject p = new GameObject(name);
-            p.transform.SetParent(parent.transform, false);
-            RectTransform rt = p.AddComponent<RectTransform>();
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.pivot = pivot;
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = size;
-
-            Image img = p.AddComponent<Image>();
-            img.sprite = AuraTheme.RoundedFill;
-            img.type = Image.Type.Sliced;
-            img.color = color;
-
-            GameObject ringObj = new GameObject("Stroke");
-            ringObj.transform.SetParent(p.transform, false);
-            RectTransform ringRt = ringObj.AddComponent<RectTransform>();
-            ringRt.anchorMin = Vector2.zero;
-            ringRt.anchorMax = Vector2.one;
-            ringRt.offsetMin = Vector2.zero;
-            ringRt.offsetMax = Vector2.zero;
-            Image ringImg = ringObj.AddComponent<Image>();
-            ringImg.sprite = AuraTheme.RoundedRing;
-            ringImg.type = Image.Type.Sliced;
-            ringImg.color = AuraTheme.Stroke;
-            ringImg.raycastTarget = false;
-
-            AuraTheme.AddHardShadow(p);
-            return p;
+            // Input wells (PanelDeep) sit "inside" the board, so they get no drop shadow.
+            bool inset = color == AuraTheme.PanelDeep;
+            return AuraTheme.CreatePanel(parent.transform, name, anchorMin, anchorMax, pivot, pos, size, color, AuraTheme.Stroke, !inset);
         }
 
         // ==================== CHEF REGISTRATION MODAL ====================
@@ -468,19 +445,11 @@ namespace AuraKitchen
             bg.color = AuraTheme.Scrim;
 
             // Center Card
-            GameObject card = new GameObject("Card");
-            card.transform.SetParent(namePromptModalObj.transform, false);
-            RectTransform crt = card.AddComponent<RectTransform>();
-            crt.anchorMin = new Vector2(0.5f, 0.5f);
-            crt.anchorMax = new Vector2(0.5f, 0.5f);
-            crt.pivot = new Vector2(0.5f, 0.5f);
-            crt.sizeDelta = new Vector2(800, 540);
+            GameObject card = AuraTheme.CreatePanel(namePromptModalObj.transform, "Card",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(800, 540), AuraTheme.PanelFill, AuraTheme.Stroke);
 
-            Image cImg = card.AddComponent<Image>();
-            cImg.color = AuraTheme.PanelFill;
-
-
-            CreateTMPText(card, "CHEF REGISTRATION", 32, FontStyles.Bold,
+            CreateTMPText(card, "Choose your chef name", 32, FontStyles.Bold,
                 new Vector2(0, 195), new Vector2(750, 48), AuraTheme.Gold);
 
             CreateTMPText(card, "Choose your unique Chef Nickname for Multiplayer Squad.\nThis name will be saved and displayed above your 3D character!", 17, FontStyles.Normal,
@@ -511,7 +480,7 @@ namespace AuraKitchen
             }
 
             // Confirm Button
-            CreateStyledButton(card, "Btn_ConfirmName", "SAVE & ENTER SQUAD LOBBY", new Vector2(0, -130), new Vector2(420, 72),
+            CreateStyledButton(card, "Btn_ConfirmName", "Save & Enter Lobby", new Vector2(0, -130), new Vector2(420, 72),
                 new Color32(0x12, 0x8A, 0x4E, 0xFF), Color.white, OnSaveNameClicked, 20);
 
             namePromptStatusText = CreateTMPText(card, "", 15, FontStyles.Normal,
@@ -605,22 +574,7 @@ namespace AuraKitchen
         private void SetTabActive(Button btn, bool active)
         {
             if (btn == null) return;
-            AuraTheme.ButtonStyle style = active ? AuraTheme.ButtonStyle.Primary : AuraTheme.ButtonStyle.Ghost;
-            Color fill, text, accent;
-            AuraTheme.GetButtonColors(style, out fill, out text, out accent);
-
-            Image img = btn.GetComponent<Image>();
-            if (img != null) img.color = fill;
-
-            Transform ring = btn.transform.Find("Stroke");
-            if (ring != null)
-            {
-                Image ringImg = ring.GetComponent<Image>();
-                if (ringImg != null) ringImg.color = accent;
-            }
-
-            TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>();
-            if (label != null) label.color = text;
+            AuraTheme.ApplyButtonStyle(btn.gameObject, active ? AuraTheme.ButtonStyle.Gold : AuraTheme.ButtonStyle.Ghost);
         }
 
         private static string RandomRoomCode()

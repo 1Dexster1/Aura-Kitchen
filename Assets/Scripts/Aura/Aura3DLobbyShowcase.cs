@@ -142,7 +142,7 @@ namespace AuraKitchen
             tex.filterMode = FilterMode.Bilinear;
             Color32[] px = new Color32[n * n];
             Color ink = AuraTheme.Ink;
-            Color dotColor = new Color(0.20f, 0.20f, 0.24f, 1f);
+            Color dotColor = new Color(0.30f, 0.18f, 0.10f, 1f);
             for (int y = 0; y < n; y++)
             {
                 for (int x = 0; x < n; x++)
@@ -196,7 +196,7 @@ namespace AuraKitchen
                 go.transform.localScale = Vector3.one * sizes[i];
                 SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = AuraIcons.Get(icons[i]);
-                sr.color = new Color(AuraTheme.Paper.r, AuraTheme.Paper.g, AuraTheme.Paper.b, 0.16f);
+                sr.color = new Color(1f, 0.78f, 0.45f, 0.18f);
                 sr.sortingOrder = 2;
                 sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 backdropIcons.Add(go.transform);
