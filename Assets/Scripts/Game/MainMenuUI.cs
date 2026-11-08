@@ -71,13 +71,26 @@ public class MainMenuUI : MonoBehaviour
             ConfigureButtonText(gameQuitButton.GetComponentInChildren<TextMeshProUGUI>());
 
             gameMultiplayerButton.onClick.RemoveAllListeners();
-            gameMultiplayerButton.onClick.AddListener(() =>
-            {
-                if (AuraKitchen.AuraMultiplayerLobbyUI.Instance != null)
-                {
-                    AuraKitchen.AuraMultiplayerLobbyUI.Instance.OpenMultiplayer();
-                }
-            });
+            gameMultiplayerButton.interactable = true;
+            gameMultiplayerButton.onClick.AddListener(OnMultiplayerClicked);
+        }
+    }
+
+    private void OnMultiplayerClicked()
+    {
+        Debug.Log("[MainMenu] MULTIPLAYER clicked");
+
+        // If the lobby system wasn't created for some reason (e.g. on a device), create it now
+        // instead of silently doing nothing.
+        if (AuraKitchen.AuraMultiplayerLobbyUI.Instance == null)
+        {
+            Debug.LogWarning("[MainMenu] Lobby UI missing, creating it now");
+            new GameObject("Aura_Lobby_Fallback").AddComponent<AuraKitchen.AuraMultiplayerLobbyUI>();
+        }
+
+        if (AuraKitchen.AuraMultiplayerLobbyUI.Instance != null)
+        {
+            AuraKitchen.AuraMultiplayerLobbyUI.Instance.OpenMultiplayer();
         }
     }
 
