@@ -86,6 +86,7 @@ namespace AuraKitchen
             }
 
             CreateTransparentBattleRoyaleHUD();
+            if (hudRootObj != null) hudRootObj.SetActive(false); // never visible until the lobby is really opened
             CreateNamePromptModal();
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -121,6 +122,14 @@ namespace AuraKitchen
             }
         }
 
+        // The lobby HUD must only exist on screen while the lobby is open (menu / game scenes stay clean).
+        private bool lobbyOpen = false;
+
+        private void LateUpdate()
+        {
+            if (!lobbyOpen && hudRootObj != null && hudRootObj.activeSelf) hudRootObj.SetActive(false);
+        }
+
         private void Start()
         {
             HideLobby();
@@ -147,6 +156,7 @@ namespace AuraKitchen
             HideMainMenu2DButtons(true);
 
             if (lobbyRootCanvas != null) lobbyRootCanvas.SetActive(true);
+            lobbyOpen = true;
             if (hudRootObj != null) hudRootObj.SetActive(true);
 
             if (Aura3DLobbyShowcase.Instance != null)
@@ -160,6 +170,7 @@ namespace AuraKitchen
 
         public void HideLobby()
         {
+            lobbyOpen = false;
             if (hudRootObj != null) hudRootObj.SetActive(false);
 
             if (namePromptModalObj != null && !namePromptModalObj.activeSelf && (topCornerLobbyBtn == null || !topCornerLobbyBtn.activeSelf))
@@ -220,6 +231,7 @@ namespace AuraKitchen
 
             HideMainMenu2DButtons(true);
             if (lobbyRootCanvas != null) lobbyRootCanvas.SetActive(true);
+            lobbyOpen = true;
             if (hudRootObj != null) hudRootObj.SetActive(true);
 
             if (Aura3DLobbyShowcase.Instance != null)
