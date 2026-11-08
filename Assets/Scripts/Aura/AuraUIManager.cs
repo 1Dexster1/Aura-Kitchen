@@ -54,7 +54,7 @@ namespace AuraKitchen
         {
             if (gameTitleText != null)
             {
-                gameTitleText.text = "<color=#00e5ff>AURA</color> <color=#ffaa00>KITCHEN</color>";
+                gameTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.Amber) + ">KITCHEN</color>";
             }
 
             if (shiftSummaryPanel != null)
@@ -125,7 +125,7 @@ namespace AuraKitchen
                     {
                         // Urgency pulse red
                         float pulse = 0.8f + Mathf.PingPong(Time.time * 6f, 0.4f);
-                        shiftTimerText.color = new Color(1f, 0.2f * pulse, 0.2f * pulse);
+                        shiftTimerText.color = Color.Lerp(AuraTheme.TextPrimary, AuraTheme.Danger, Mathf.Clamp01(pulse - 0.4f));
                     }
                 }
 
@@ -146,7 +146,7 @@ namespace AuraKitchen
         {
             if (customerRatingText != null)
             {
-                customerRatingText.text = $"RATING: {e.AverageRating:0.0} / 5.0";
+                customerRatingText.text = $"<color={AuraTheme.Hex(AuraTheme.Gold)}>\u2605</color> {e.AverageRating:0.0} <color={AuraTheme.Hex(AuraTheme.TextSecondary)}>/ 5.0</color>";
             }
         }
 
@@ -168,11 +168,11 @@ namespace AuraKitchen
 
             if (comboStreak >= 4)
             {
-                comboMultiplierText.text = $"<color=#ff3d00>[x4 MAX AURA]</color>";
+                comboMultiplierText.text = $"<color={AuraTheme.Hex(AuraTheme.Ember)}><b>x4</b> MAX AURA</color>";
             }
             else if (comboStreak > 1)
             {
-                comboMultiplierText.text = $"<color=#ffaa00>[x{comboStreak} STREAK]</color>";
+                comboMultiplierText.text = $"<color={AuraTheme.Hex(AuraTheme.Amber)}><b>x{comboStreak}</b> STREAK</color>";
             }
             else
             {
@@ -198,8 +198,8 @@ namespace AuraKitchen
         {
             if (activeChefLabel != null)
             {
-                string chefName = activeIndex == 0 ? "Chef Ruby (P1)" : "Chef Sapphire (P2)";
-                activeChefLabel.text = $"Controlling: {chefName}";
+                int chefSlot = activeIndex == 0 ? 0 : 1;
+                activeChefLabel.text = $"Controlling <color={AuraTheme.ChefHex(chefSlot)}><b>{AuraTheme.ChefName(chefSlot)}</b></color>";
             }
         }
 
@@ -231,15 +231,15 @@ namespace AuraKitchen
             {
                 if (rating >= 4.5f && plates >= 8)
                 {
-                    rankTitleText.text = "<color=#ffd700>RANK: 3-STAR MICHELIN MASTER</color>";
+                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">3-STAR MICHELIN MASTER</color>";
                 }
                 else if (rating >= 3.5f && plates >= 4)
                 {
-                    rankTitleText.text = "<color=#00e5ff>RANK: EXECUTIVE SOUS-CHEF</color>";
+                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">EXECUTIVE SOUS-CHEF</color>";
                 }
                 else
                 {
-                    rankTitleText.text = "<color=#ffaa00>RANK: CERTIFIED LINE COOK</color>";
+                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">CERTIFIED LINE COOK</color>";
                 }
             }
         }
