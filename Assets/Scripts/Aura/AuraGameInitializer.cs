@@ -50,12 +50,6 @@ namespace AuraKitchen
                 Object.DontDestroyOnLoad(auraRoot);
             }
 
-            // 1. Backend Networking
-            if (Object.FindObjectOfType<AuraWebSocketClient>() == null)
-            {
-                auraRoot.AddComponent<AuraWebSocketClient>();
-            }
-
             // 2. In-Game & Menu Multiplayer Lobby (Create Room, Join, Host)
             if (Object.FindObjectOfType<AuraMultiplayerLobbyUI>() == null)
             {

@@ -370,7 +370,7 @@ namespace AuraKitchen
             guestWaitingControls.SetActive(false);
 
             GameObject pulsePill = CreateGlassPanel(guestWaitingControls, "Pill_Waiting", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420, 84), new Color32(0x2A, 0x1E, 0x08, 0xEB));
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420, 84), AuraTheme.PanelFill);
 
 
             guestWaitingStatusText = CreateTMPText(pulsePill, "WAITING FOR HOST TO START...", 19, FontStyles.Bold,
@@ -445,9 +445,10 @@ namespace AuraKitchen
             Image ringImg = ringObj.AddComponent<Image>();
             ringImg.sprite = AuraTheme.RoundedRing;
             ringImg.type = Image.Type.Sliced;
-            ringImg.color = AuraTheme.StrokeSoft;
+            ringImg.color = AuraTheme.Stroke;
             ringImg.raycastTarget = false;
 
+            AuraTheme.AddHardShadow(p);
             return p;
         }
 
@@ -578,12 +579,9 @@ namespace AuraKitchen
             if (guestWaitingControls != null) guestWaitingControls.SetActive(tabName == "guest_waiting");
             if (hudTopRightRoomBar != null) hudTopRightRoomBar.SetActive(tabName == "host" || tabName == "guest_waiting");
 
-            Color activeBg = new Color32(0x12, 0x3A, 0x5C, 0xF5);
-            Color inactiveBg = new Color32(0x14, 0x1D, 0x30, 0xD9);
-
-            SetButtonTabColor(tabHostBtn, tabName == "host" ? activeBg : inactiveBg);
-            SetButtonTabColor(tabJoinBtn, (tabName == "join" || tabName == "guest_waiting") ? activeBg : inactiveBg);
-            SetButtonTabColor(tabSoloBtn, tabName == "solo" ? activeBg : inactiveBg);
+            SetTabActive(tabHostBtn, tabName == "host");
+            SetTabActive(tabJoinBtn, tabName == "join" || tabName == "guest_waiting");
+            SetTabActive(tabSoloBtn, tabName == "solo");
 
             if (tabName == "host")
             {
@@ -604,14 +602,28 @@ namespace AuraKitchen
             }
         }
 
-        private void SetButtonTabColor(Button btn, Color c)
+        private void SetTabActive(Button btn, bool active)
         {
             if (btn == null) return;
+            AuraTheme.ButtonStyle style = active ? AuraTheme.ButtonStyle.Primary : AuraTheme.ButtonStyle.Ghost;
+            Color fill, text, accent;
+            AuraTheme.GetButtonColors(style, out fill, out text, out accent);
+
             Image img = btn.GetComponent<Image>();
-            if (img != null) img.color = c;
+            if (img != null) img.color = fill;
+
+            Transform ring = btn.transform.Find("Stroke");
+            if (ring != null)
+            {
+                Image ringImg = ring.GetComponent<Image>();
+                if (ringImg != null) ringImg.color = accent;
+            }
+
+            TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null) label.color = text;
         }
 
-        private void GenerateNewHostRoom()
+        private static string RandomRoomCode()
         {
             const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
             System.Random rand = new System.Random();
@@ -620,7 +632,17 @@ namespace AuraKitchen
             {
                 codeChars[i] = chars[rand.Next(chars.Length)];
             }
-            activeRoomCode = new string(codeChars);
+            return new string(codeChars);
+        }
+
+        private void GenerateNewHostRoom()
+        {
+            // Abandon the previous room we were hosting so it doesn't linger on the server
+            if (isHost && !string.IsNullOrEmpty(AuraNet.Token) && !string.IsNullOrEmpty(activeRoomCode))
+            {
+                StartCoroutine(AuraNet.Leave(serverBaseUrl, activeRoomCode, 0));
+            }
+            activeRoomCode = RandomRoomCode();
 
             if (hostRoomCodeText != null) hostRoomCodeText.text = activeRoomCode;
             if (hostStatusText != null) hostStatusText.text = "Registering room on server...";
@@ -657,6 +679,16 @@ namespace AuraKitchen
 
             StartCoroutine(PostRoomStart(activeRoomCode, (success, msg) =>
             {
+                bool offline = string.IsNullOrEmpty(AuraNet.Token); // room never registered: local fallback
+                if (!success && !offline)
+                {
+                    NetResponse failed = AuraNet.Parse(msg);
+                    string reason = failed != null && !string.IsNullOrEmpty(failed.error) ? failed.error : "server unreachable, please try again.";
+                    if (hostStartGameBtn != null) hostStartGameBtn.interactable = true;
+                    if (hostStatusText != null) hostStatusText.text = "Couldn't start the shift: " + reason;
+                    return;
+                }
+
                 PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
                 PlayerPrefs.SetString("Aura_RoomCode", activeRoomCode);
                 PlayerPrefs.SetInt("Aura_PlayerSlot", 0);
@@ -727,15 +759,8 @@ namespace AuraKitchen
                 activeRoomCode = code;
                 isHost = false;
                 isWaitingInRoom = true;
-                mySlotIndex = 1;
-                if (response != null && response.Contains("\"slot\":"))
-                {
-                    int idx = response.IndexOf("\"slot\":") + 7;
-                    if (idx < response.Length && char.IsDigit(response[idx]))
-                    {
-                        mySlotIndex = response[idx] - '0';
-                    }
-                }
+                NetResponse joined = AuraNet.Parse(response);
+                mySlotIndex = joined != null ? Mathf.Clamp(joined.slot, 0, 3) : 1;
 
                 SwitchTab("guest_waiting");
                 if (hostRoomCodeText != null) hostRoomCodeText.text = activeRoomCode;
@@ -796,56 +821,78 @@ namespace AuraKitchen
 
                 yield return StartCoroutine(GetRoomState(activeRoomCode, (success, json) =>
                 {
-                    if (success)
+                    if (!success)
                     {
-                        Update3DShowcaseFromJSON(json);
-
-                        if (json.Contains("\"isPlaying\":true"))
+                        if (!string.IsNullOrEmpty(json) && json.Contains("Room not found"))
                         {
-                            isWaitingInRoom = false;
-                            if (guestWaitingStatusText != null)
-                            {
-                                guestWaitingStatusText.text = "Host started the match! Entering kitchen...";
-                            }
-
-                            PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
-                            PlayerPrefs.SetString("Aura_RoomCode", activeRoomCode);
-                            PlayerPrefs.SetInt("Aura_PlayerSlot", mySlotIndex);
-
-                            StartCoroutine(EnterGameAfterDelay());
+                            LeaveRoomAfterKick("The room was closed by the host.");
                         }
+                        return;
+                    }
+
+                    NetResponse state = AuraNet.Parse(json);
+                    NetPlayer[] roster = AuraNet.GetPlayers(state);
+                    if (roster != null && !RosterHasSlot(roster, mySlotIndex))
+                    {
+                        LeaveRoomAfterKick("You were removed from the room.");
+                        return;
+                    }
+
+                    Update3DShowcaseFromJSON(json);
+
+                    if (state != null && state.isPlaying)
+                    {
+                        isWaitingInRoom = false;
+                        if (guestWaitingStatusText != null)
+                        {
+                            guestWaitingStatusText.text = "Host started the match! Entering kitchen...";
+                        }
+
+                        PlayerPrefs.SetInt("Aura_GameMode", (int)MultiplayerManager.Mode.OnlineCoop);
+                        PlayerPrefs.SetString("Aura_RoomCode", activeRoomCode);
+                        PlayerPrefs.SetInt("Aura_PlayerSlot", mySlotIndex);
+
+                        StartCoroutine(EnterGameAfterDelay());
                     }
                 }));
             }
+        }
+
+        private static bool RosterHasSlot(NetPlayer[] roster, int slot)
+        {
+            for (int i = 0; i < roster.Length; i++)
+            {
+                if (roster[i] != null && roster[i].slot == slot) return true;
+            }
+            return false;
+        }
+
+        private void LeaveRoomAfterKick(string message)
+        {
+            isWaitingInRoom = false;
+            SwitchTab("join");
+            if (joinStatusText != null) joinStatusText.text = message;
         }
 
         private void Update3DShowcaseFromJSON(string json)
         {
             if (string.IsNullOrEmpty(json) || Aura3DLobbyShowcase.Instance == null) return;
 
-            string[] defaultChefNames = AuraTheme.ChefNames;
+            NetPlayer[] roster = AuraNet.GetPlayers(AuraNet.Parse(json));
+            if (roster == null) return;
 
+            bool[] present = new bool[4];
+            for (int i = 0; i < roster.Length; i++)
+            {
+                NetPlayer np = roster[i];
+                if (np == null || np.slot < 0 || np.slot > 3) continue;
+                present[np.slot] = true;
+                string pName = string.IsNullOrEmpty(np.name) ? AuraTheme.ChefName(np.slot) : np.name;
+                Aura3DLobbyShowcase.Instance.UpdateSlot(np.slot, true, pName, true);
+            }
             for (int slot = 0; slot < 4; slot++)
             {
-                int sIdx = json.IndexOf($"\"slot\":{slot}");
-                if (sIdx >= 0)
-                {
-                    string pName = defaultChefNames[slot];
-                    int nIdx = json.IndexOf("\"name\":\"", sIdx);
-                    if (nIdx >= 0 && nIdx < sIdx + 120)
-                    {
-                        int eIdx = json.IndexOf("\"", nIdx + 8);
-                        if (eIdx > nIdx + 8)
-                        {
-                            pName = json.Substring(nIdx + 8, eIdx - (nIdx + 8));
-                        }
-                    }
-                    Aura3DLobbyShowcase.Instance.UpdateSlot(slot, true, pName, true);
-                }
-                else
-                {
-                    Aura3DLobbyShowcase.Instance.UpdateSlot(slot, false, "[OPEN]", false);
-                }
+                if (!present[slot]) Aura3DLobbyShowcase.Instance.UpdateSlot(slot, false, "[OPEN]", false);
             }
         }
 
@@ -863,109 +910,81 @@ namespace AuraKitchen
 
         private IEnumerator RegisterRoomOnServer(string code, string hostName)
         {
-            string url = $"{serverBaseUrl}/api/room/create";
-            string json = $"{{\"code\":\"{code}\",\"hostName\":\"{hostName}\"}}";
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
-            {
-                req.timeout = 10;
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                yield return req.SendWebRequest();
+            AuraNet.Token = "";
 
-                if (hostStatusText != null)
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                NetResult res = null;
+                yield return AuraNet.Create(serverBaseUrl, code, hostName, r => res = r);
+
+                if (res != null && res.ok)
                 {
-                    if (req.result == UnityWebRequest.Result.Success)
-                    {
-                        hostStatusText.text = "Room ready on server! Share the 4-letter code with your squad.";
-                    }
-                    else
-                    {
-                        hostStatusText.text = "Offline fallback: server unreachable, but room ready locally.";
-                    }
+                    AuraNet.Token = res.data.token;
+                    if (!string.IsNullOrEmpty(res.data.code)) activeRoomCode = res.data.code;
+                    if (hostRoomCodeText != null) hostRoomCodeText.text = activeRoomCode;
+                    if (hostStatusText != null) hostStatusText.text = "Room ready on server! Share the 4-letter code with your squad.";
+                    yield break;
                 }
+
+                if (res != null && res.status == 409)
+                {
+                    // Someone else is using this code right now: pick another one and retry
+                    code = RandomRoomCode();
+                    activeRoomCode = code;
+                    if (hostRoomCodeText != null) hostRoomCodeText.text = code;
+                    continue;
+                }
+                break;
+            }
+
+            if (hostStatusText != null)
+            {
+                hostStatusText.text = "Offline fallback: server unreachable, but room ready locally.";
             }
         }
 
         private IEnumerator PostRoomJoin(string code, string playerName, Action<bool, string> onComplete)
         {
-            string url = $"{serverBaseUrl}/api/room/join";
-            string json = $"{{\"code\":\"{code}\",\"playerName\":\"{playerName}\"}}";
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
-            {
-                req.timeout = 10;
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                yield return req.SendWebRequest();
+            NetResult res = null;
+            yield return AuraNet.Join(serverBaseUrl, code, playerName, r => res = r);
 
-                bool ok = req.result == UnityWebRequest.Result.Success;
-                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
-                    ? req.downloadHandler.text
-                    : req.error;
-                onComplete?.Invoke(ok, respText);
-            }
+            bool ok = res != null && res.ok;
+            if (ok) AuraNet.Token = res.data.token;
+            string text = res == null ? "no response" : (!string.IsNullOrEmpty(res.text) ? res.text : res.error);
+            if (onComplete != null) onComplete(ok, text);
         }
 
         private IEnumerator GetRoomState(string code, Action<bool, string> onComplete)
         {
-            string url = $"{serverBaseUrl}/api/room/{code}";
-            using (UnityWebRequest req = UnityWebRequest.Get(url))
-            {
-                req.timeout = 10;
-                yield return req.SendWebRequest();
-                bool ok = req.result == UnityWebRequest.Result.Success;
-                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
-                    ? req.downloadHandler.text
-                    : req.error;
-                onComplete?.Invoke(ok, respText);
-            }
+            NetResult res = null;
+            yield return AuraNet.GetRoom(serverBaseUrl, code, mySlotIndex, r => res = r);
+
+            bool ok = res != null && res.ok;
+            string text = res == null ? "no response" : (!string.IsNullOrEmpty(res.text) ? res.text : res.error);
+            if (onComplete != null) onComplete(ok, text);
         }
 
         private IEnumerator PostRoomStart(string code, Action<bool, string> onComplete)
         {
-            string url = $"{serverBaseUrl}/api/room/{code}/start";
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
-            {
-                req.timeout = 10;
-                byte[] body = Encoding.UTF8.GetBytes("{}");
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                yield return req.SendWebRequest();
-                bool ok = req.result == UnityWebRequest.Result.Success;
-                string respText = (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text))
-                    ? req.downloadHandler.text
-                    : req.error;
-                onComplete?.Invoke(ok, respText);
-            }
+            NetResult res = null;
+            yield return AuraNet.Start(serverBaseUrl, code, 0, r => res = r);
+
+            bool ok = res != null && res.ok;
+            string text = res == null ? "no response" : (!string.IsNullOrEmpty(res.text) ? res.text : res.error);
+            if (onComplete != null) onComplete(ok, text);
         }
 
         private IEnumerator PostRoomLeave(string code, int slot)
         {
-            string url = $"{serverBaseUrl}/api/room/{code}/leave";
-            string json = $"{{\"slot\":{slot}}}";
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
-            {
-                req.timeout = 10;
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                yield return req.SendWebRequest();
-            }
+            yield return AuraNet.Leave(serverBaseUrl, code, slot);
         }
 
         // ==================== PROCEDURAL UI GENERATION UTILITIES ====================
 
         private GameObject CreateStyledButton(GameObject parent, string name, string label, Vector2 pos, Vector2 size, Color bgColor, Color textColor, Action onClick = null, float fontSize = 18f)
         {
-            // Accent = a brightened version of the fill so every button keeps its identity inside the shared style.
-            Color accent = Color.Lerp(bgColor, Color.white, 0.45f);
-            accent.a = 0.85f;
-            return AuraTheme.CreateButton(parent.transform, name, label, pos, size, bgColor, textColor, accent, onClick, fontSize);
+            AuraTheme.ButtonStyle style = AuraTheme.StyleFromColors(bgColor, textColor);
+            return AuraTheme.CreateButton(parent.transform, name, label, pos, size, style, onClick, fontSize);
         }
 
         private TextMeshProUGUI CreateTMPText(GameObject parent, string text, float size, FontStyles style, Vector2 pos, Vector2 dimensions, Color color)

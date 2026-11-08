@@ -31,12 +31,13 @@ namespace AuraKitchen
             public bool isWalking;
             public int dishes;
             public int score;
+            public Vector3 vel;
+            public bool snapped;
         }
 
         private Dictionary<int, RemoteChefData> remoteChefs = new Dictionary<int, RemoteChefData>();
         private Player localPlayer;
         private Coroutine syncCoroutine;
-        private bool isSyncing = false;
 
         // Challenge Scoreboard UI
         private GameObject scoreboardCanvasObj;
@@ -107,6 +108,7 @@ namespace AuraKitchen
             }
 
             CreateScoreboardUI();
+            CreateNetUI();
 
             // Hook delivery
             if (DeliveryManager.Instance != null)
@@ -132,227 +134,345 @@ namespace AuraKitchen
         {
             if (!IsOnlineActive) return;
 
-            // Smoothly interpolate remote players' positions & rotations
+            // Critically damped follow: smooth at any network rate, snaps only on teleports
             foreach (var kvp in remoteChefs)
             {
                 RemoteChefData data = kvp.Value;
-                if (data.playerComponent != null)
+                if (data.playerComponent == null) continue;
+
+                Transform t = data.playerComponent.transform;
+                if ((t.position - data.targetPos).sqrMagnitude > 36f)
                 {
-                    Transform t = data.playerComponent.transform;
-                    t.position = Vector3.Lerp(t.position, data.targetPos, Time.deltaTime * 14f);
-                    t.rotation = Quaternion.Slerp(t.rotation, data.targetRot, Time.deltaTime * 14f);
-                    data.playerComponent.SetRemoteWalking(data.isWalking);
+                    t.position = data.targetPos;
+                    data.vel = Vector3.zero;
                 }
+                else
+                {
+                    t.position = Vector3.SmoothDamp(t.position, data.targetPos, ref data.vel, 0.1f);
+                }
+                t.rotation = Quaternion.Slerp(t.rotation, data.targetRot, 1f - Mathf.Exp(-14f * Time.deltaTime));
+                data.playerComponent.SetRemoteWalking(data.isWalking);
             }
         }
 
+        // ==================== NETWORK CORE ====================
+
+        private enum NetState { Connected, Reconnecting, Lost }
+
+        private const float SyncInterval = 0.1f;        // 10 Hz; unchanged replies are tiny
+        private const float GiveUpAfterSeconds = 25f;   // server drops silent players after 30s
+
+        private NetState netState = NetState.Connected;
+        private string myToken = "";
+        private bool offlineMode = false;
+        private int knownRev = 0;
+        private int consecutiveFailures = 0;
+        private float lastSuccessTime = 0f;
+        private float pingMs = 0f;
+        private int deliverSeq = 0;
+
+        private Image pingIcon;
+        private TextMeshProUGUI pingLabel;
+        private GameObject pingPill;
+        private GameObject reconnectBanner;
+        private GameObject lostOverlay;
+        private TextMeshProUGUI lostReasonText;
+
         private IEnumerator SetupRoomAndStartSync()
         {
-            // 1. Query server to know all players in this room
-            yield return StartCoroutine(GetRoomState(ActiveRoomCode, (success, json) =>
+            myToken = AuraNet.Token;
+            if (string.IsNullOrEmpty(myToken))
             {
-                if (success && json.Contains("\"players\":"))
-                {
-                    ParseAndSpawnRemoteChefs(json);
-                }
-            }));
+                // Room was never registered on the server (lobby offline fallback): play locally.
+                offlineMode = true;
+                if (pingPill != null) pingPill.SetActive(false);
+                yield break;
+            }
 
-            // 2. Start high-frequency sync loop
+            lastSuccessTime = Time.realtimeSinceStartup;
+
+            NetResult first = null;
+            yield return AuraNet.GetRoom(serverBaseUrl, ActiveRoomCode, MySlotIndex, r => first = r);
+            if (first != null && first.ok) ApplyPlayers(AuraNet.GetPlayers(first.data));
+
             syncCoroutine = StartCoroutine(NetworkSyncLoop());
         }
 
         private IEnumerator NetworkSyncLoop()
         {
-            WaitForSeconds wait = new WaitForSeconds(0.12f); // 8.3 Hz network sync (smoother, avoids mobile packet pile-up)
-            while (IsOnlineActive)
+            while (IsOnlineActive && !offlineMode && netState != NetState.Lost)
             {
-                if (!isSyncing && localPlayer != null)
+                float start = Time.realtimeSinceStartup;
+                if (localPlayer != null)
                 {
-                    yield return StartCoroutine(SendSyncRequest());
+                    yield return SendSyncRequest();
                 }
-                yield return wait;
+                float spent = Time.realtimeSinceStartup - start;
+
+                // Exponential back-off while the connection is struggling (max ~2s)
+                float backoff = consecutiveFailures == 0 ? 0f : Mathf.Min(2f, 0.15f * (1 << Mathf.Min(consecutiveFailures, 4)));
+                yield return new WaitForSecondsRealtime(Mathf.Max(0.02f, SyncInterval - spent) + backoff);
             }
         }
 
         private IEnumerator SendSyncRequest()
         {
-            isSyncing = true;
-            string url = $"{serverBaseUrl}/api/room/{ActiveRoomCode}/sync";
-
             Vector3 pos = localPlayer.transform.position;
-            float rotY = localPlayer.transform.eulerAngles.y;
-            bool isWalking = localPlayer.IsWalking;
-            int dishes = GameManager.Instance != null ? GameManager.Instance.PlateServed : 0;
-            int score = AuraGameMechanics.Instance != null ? AuraGameMechanics.Instance.CurrentScore : 0;
-
-            string json = $"{{\"slot\":{MySlotIndex},\"x\":{pos.x:F2},\"z\":{pos.z:F2},\"rotY\":{rotY:F1},\"isWalking\":{(isWalking ? "true" : "false")},\"dishes\":{dishes},\"score\":{score}}}";
-
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            NetSyncBody body = new NetSyncBody
             {
-                req.timeout = 3;
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
+                slot = MySlotIndex,
+                token = myToken,
+                x = pos.x,
+                z = pos.z,
+                rotY = localPlayer.transform.eulerAngles.y,
+                isWalking = localPlayer.IsWalking,
+                rev = knownRev
+            };
 
-                yield return req.SendWebRequest();
+            NetResult res = null;
+            yield return AuraNet.Sync(serverBaseUrl, ActiveRoomCode, body, r => res = r);
+            HandleSyncResult(res);
+        }
 
-                if (req.result == UnityWebRequest.Result.Success)
-                {
-                    UpdateRemoteChefsFromJSON(req.downloadHandler.text);
-                }
+        private void HandleSyncResult(NetResult res)
+        {
+            if (res == null) return;
+
+            if (res.ok)
+            {
+                consecutiveFailures = 0;
+                lastSuccessTime = Time.realtimeSinceStartup;
+                pingMs = pingMs <= 0f ? res.rtt : Mathf.Lerp(pingMs, res.rtt, 0.25f);
+                SetNetState(NetState.Connected);
+
+                if (res.data.rev > 0) knownRev = res.data.rev;
+                if (res.data.changed && res.data.players != null) ApplyPlayers(res.data.players);
+                RefreshPingUI();
+                return;
             }
-            isSyncing = false;
+
+            if (res.status == 403)
+            {
+                SetLost("You were removed from the room.");
+                return;
+            }
+            if (res.status == 404)
+            {
+                SetLost("The room was closed.");
+                return;
+            }
+
+            consecutiveFailures++;
+            if (Time.realtimeSinceStartup - lastSuccessTime > GiveUpAfterSeconds)
+            {
+                SetLost("Connection to the server was lost.");
+            }
+            else if (consecutiveFailures >= 2)
+            {
+                SetNetState(NetState.Reconnecting);
+            }
+        }
+
+        private void SetNetState(NetState state)
+        {
+            if (netState == NetState.Lost || netState == state) return;
+            netState = state;
+            if (reconnectBanner != null) reconnectBanner.SetActive(state == NetState.Reconnecting);
+        }
+
+        private void SetLost(string reason)
+        {
+            netState = NetState.Lost;
+            if (reconnectBanner != null) reconnectBanner.SetActive(false);
+            if (lostReasonText != null) lostReasonText.text = reason;
+            if (lostOverlay != null) lostOverlay.SetActive(true);
+        }
+
+        private void ContinueOffline()
+        {
+            offlineMode = true;
+            if (lostOverlay != null) lostOverlay.SetActive(false);
+            if (pingPill != null) pingPill.SetActive(false);
         }
 
         private void OnLocalOrderDelivered(object sender, MenuRecipeSO recipe)
         {
-            if (!IsOnlineActive) return;
+            if (!IsOnlineActive || offlineMode || netState == NetState.Lost) return;
             string dishName = recipe != null ? recipe.recipeName : "Dish";
             int pts = 100 * (AuraGameMechanics.Instance != null ? AuraGameMechanics.ScoreMultiplier : 1);
-            StartCoroutine(PostOrderDelivery(dishName, pts));
+            StartCoroutine(PostOrderDelivery(dishName, pts, ++deliverSeq));
         }
 
-        private IEnumerator PostOrderDelivery(string dishName, int pts)
+        private IEnumerator PostOrderDelivery(string dishName, int pts, int seq)
         {
-            string url = $"{serverBaseUrl}/api/room/{ActiveRoomCode}/deliver";
-            string json = $"{{\"slot\":{MySlotIndex},\"dishName\":\"{dishName}\",\"earnedPoints\":{pts}}}";
+            NetDeliverBody body = new NetDeliverBody { slot = MySlotIndex, token = myToken, seq = seq, dishName = dishName, earnedPoints = pts };
 
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            // The server de-duplicates by seq, so retrying after a timeout can never double count.
+            for (int attempt = 0; attempt < 4; attempt++)
             {
-                req.timeout = 4;
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                yield return req.SendWebRequest();
+                NetResult res = null;
+                yield return AuraNet.Deliver(serverBaseUrl, ActiveRoomCode, body, r => res = r);
+                if (res != null && !res.Retryable) yield break;
+                yield return new WaitForSecondsRealtime(0.5f * (attempt + 1));
             }
         }
 
-        private void ParseAndSpawnRemoteChefs(string json)
+        // ==================== REMOTE CHEFS ====================
+
+        private void ApplyPlayers(NetPlayer[] players)
         {
-            string[] chefNames = { "Chef Ruby (P1)", "Chef Sapphire (P2)", "Chef Emerald (P3)", "Chef Amber (P4)" };
-            Vector3[] defaultSpawns = { new Vector3(-2.5f, 0, 0), new Vector3(2.5f, 0, 0), new Vector3(-2.5f, 0, 2f), new Vector3(2.5f, 0, 2f) };
+            if (players == null) return;
 
-            for (int slot = 0; slot < 4; slot++)
+            bool[] present = new bool[4];
+            foreach (NetPlayer np in players)
             {
-                if (slot == MySlotIndex) continue; // Skip local player
+                if (np == null || np.slot < 0 || np.slot > 3) continue;
+                present[np.slot] = true;
+                if (np.slot == MySlotIndex) continue;
 
-                // Check if slot exists in room json
-                if (json.Contains($"\"slot\":{slot}"))
+                RemoteChefData data;
+                if (!remoteChefs.TryGetValue(np.slot, out data))
                 {
-                    if (!remoteChefs.ContainsKey(slot))
+                    data = SpawnRemoteChef(np);
+                    if (data == null) continue;
+                }
+
+                if (!string.IsNullOrEmpty(np.name)) data.name = np.name;
+
+                if (np.hasPos)
+                {
+                    data.targetPos = new Vector3(np.x, data.targetPos.y, np.z);
+                    data.targetRot = Quaternion.Euler(0f, np.rotY, 0f);
+                    if (!data.snapped && data.playerComponent != null)
                     {
-                        // Spawn remote chef clone
-                        GameObject clone = Instantiate(localPlayer.gameObject, defaultSpawns[slot], Quaternion.identity);
-                        clone.name = $"RemotePlayer_P{slot + 1}_{chefNames[slot]}";
-                        Player rPlayer = clone.GetComponent<Player>();
-                        rPlayer.isRemotePlayer = true;
-
-                        // CRITICAL: Re-assert localPlayer as Player.Instance so touch controls never get stolen
-                        if (localPlayer != null)
-                        {
-                            localPlayer.SetAsLocalInstance();
-                        }
-
-                        // Extract custom name if present
-                        string slotName = chefNames[slot];
-                        int sIdx = json.IndexOf($"\"slot\":{slot}");
-                        if (sIdx >= 0)
-                        {
-                            int nIdx = json.IndexOf("\"name\":\"", sIdx);
-                            if (nIdx >= 0 && nIdx < sIdx + 120)
-                            {
-                                int eIdx = json.IndexOf("\"", nIdx + 8);
-                                if (eIdx > nIdx + 8)
-                                {
-                                    slotName = json.Substring(nIdx + 8, eIdx - (nIdx + 8));
-                                }
-                            }
-                        }
-
-                        // Ensure visual setup
-                        PlayerAuraVisual vis = clone.GetComponent<PlayerAuraVisual>();
-                        if (vis == null) vis = clone.AddComponent<PlayerAuraVisual>();
-                        vis.SetupPlayerVisual(slot, slotName);
-
-                        RemoteChefData data = new RemoteChefData
-                        {
-                            slot = slot,
-                            name = slotName,
-                            playerComponent = rPlayer,
-                            targetPos = defaultSpawns[slot],
-                            targetRot = Quaternion.identity,
-                            isWalking = false,
-                            dishes = 0,
-                            score = 0
-                        };
-                        remoteChefs[slot] = data;
-                        Debug.Log($"<color=cyan>[Multiplayer]</color> Spawned remote chef: {data.name}");
+                        data.playerComponent.transform.position = data.targetPos;
+                        data.playerComponent.transform.rotation = data.targetRot;
+                        data.snapped = true;
                     }
                 }
+                data.isWalking = np.isWalking;
+                data.dishes = np.dishes;
+                data.score = np.score;
             }
-            UpdateScoreboardDisplay();
-        }
 
-        private void UpdateRemoteChefsFromJSON(string json)
-        {
-            if (string.IsNullOrEmpty(json) || !json.Contains("\"players\":")) return;
-
-            // Check if any new chef joined
-            for (int slot = 0; slot < 4; slot++)
+            // Chefs that left the room disappear from the kitchen
+            List<int> gone = null;
+            foreach (var kvp in remoteChefs)
             {
-                if (slot == MySlotIndex) continue;
-
-                if (json.Contains($"\"slot\":{slot}"))
+                if (!present[kvp.Key])
                 {
-                    if (!remoteChefs.ContainsKey(slot))
-                    {
-                        ParseAndSpawnRemoteChefs(json);
-                        return;
-                    }
-
-                    // Extract coordinates
+                    if (gone == null) gone = new List<int>();
+                    gone.Add(kvp.Key);
+                }
+            }
+            if (gone != null)
+            {
+                foreach (int slot in gone)
+                {
                     RemoteChefData data = remoteChefs[slot];
-                    int slotIdx = json.IndexOf($"\"slot\":{slot}");
-                    if (slotIdx >= 0)
-                    {
-                        data.targetPos.x = ExtractFloat(json, "\"x\":", slotIdx, data.targetPos.x);
-                        data.targetPos.z = ExtractFloat(json, "\"z\":", slotIdx, data.targetPos.z);
-                        float rotY = ExtractFloat(json, "\"rotY\":", slotIdx, data.targetRot.eulerAngles.y);
-                        data.targetRot = Quaternion.Euler(0, rotY, 0);
-
-                        int wIdx = json.IndexOf("\"isWalking\":", slotIdx);
-                        if (wIdx >= 0 && wIdx < slotIdx + 150)
-                        {
-                            data.isWalking = json.Substring(wIdx + 12, 4) == "true";
-                        }
-
-                        data.dishes = (int)ExtractFloat(json, "\"dishes\":", slotIdx, data.dishes);
-                        data.score = (int)ExtractFloat(json, "\"score\":", slotIdx, data.score);
-                    }
+                    if (data.playerComponent != null) Destroy(data.playerComponent.gameObject);
+                    remoteChefs.Remove(slot);
                 }
             }
+
             UpdateScoreboardDisplay();
         }
 
-        private float ExtractFloat(string str, string key, int searchStart, float fallback)
+        private RemoteChefData SpawnRemoteChef(NetPlayer np)
         {
-            int idx = str.IndexOf(key, searchStart);
-            if (idx >= 0 && idx < searchStart + 160)
+            if (localPlayer == null) return null;
+
+            Vector3[] defaultSpawns = { new Vector3(-2.5f, 0, 0), new Vector3(2.5f, 0, 0), new Vector3(-2.5f, 0, 2f), new Vector3(2.5f, 0, 2f) };
+            int slot = np.slot;
+            string slotName = !string.IsNullOrEmpty(np.name) ? np.name : AuraTheme.ChefName(slot);
+
+            GameObject clone = Instantiate(localPlayer.gameObject, defaultSpawns[slot], Quaternion.identity);
+            clone.name = "RemotePlayer_P" + (slot + 1) + "_" + AuraTheme.ChefName(slot);
+            Player rPlayer = clone.GetComponent<Player>();
+            rPlayer.isRemotePlayer = true;
+
+            // CRITICAL: Re-assert localPlayer as Player.Instance so touch controls never get stolen
+            localPlayer.SetAsLocalInstance();
+
+            PlayerAuraVisual vis = clone.GetComponent<PlayerAuraVisual>();
+            if (vis == null) vis = clone.AddComponent<PlayerAuraVisual>();
+            vis.SetupPlayerVisual(slot, slotName);
+
+            RemoteChefData data = new RemoteChefData
             {
-                int valStart = idx + key.Length;
-                int valEnd = valStart;
-                while (valEnd < str.Length && (char.IsDigit(str[valEnd]) || str[valEnd] == '.' || str[valEnd] == '-'))
-                {
-                    valEnd++;
-                }
-                if (valEnd > valStart && float.TryParse(str.Substring(valStart, valEnd - valStart), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float res))
-                {
-                    return res;
-                }
+                slot = slot,
+                name = slotName,
+                playerComponent = rPlayer,
+                targetPos = defaultSpawns[slot],
+                targetRot = Quaternion.identity,
+                isWalking = false,
+                dishes = 0,
+                score = 0
+            };
+            remoteChefs[slot] = data;
+            Debug.Log("<color=cyan>[Multiplayer]</color> Spawned remote chef: " + data.name);
+            return data;
+        }
+
+        // ==================== CONNECTION UI ====================
+
+        private void CreateNetUI()
+        {
+            if (scoreboardCanvasObj == null) return;
+            if (scoreboardCanvasObj.GetComponent<GraphicRaycaster>() == null)
+            {
+                scoreboardCanvasObj.AddComponent<GraphicRaycaster>();
             }
-            return fallback;
+            Transform root = scoreboardCanvasObj.transform;
+
+            // Ping pill (bottom-left)
+            pingPill = AuraTheme.CreatePanel(root, "PingPill",
+                new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(20f, 20f),
+                new Vector2(128f, 36f), AuraTheme.PanelFill, AuraTheme.StrokeSoft, false);
+            pingPill.GetComponent<Image>().raycastTarget = false;
+            pingIcon = AuraTheme.CreateIcon(pingPill.transform, AuraIcons.Get(AuraIcon.Signal), new Vector2(-44f, 0f), 20f, AuraTheme.TextSecondary);
+            pingLabel = AuraTheme.CreateText(pingPill.transform, "-- ms", 15f, FontStyles.Bold, new Vector2(14f, 0f), new Vector2(80f, 30f), AuraTheme.TextSecondary);
+
+            // Reconnecting banner (top-center, under the timer and hype text)
+            reconnectBanner = AuraTheme.CreatePanel(root, "ReconnectBanner",
+                new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -160f),
+                new Vector2(420f, 46f), AuraTheme.PanelFill, AuraTheme.Amber, false);
+            reconnectBanner.GetComponent<Image>().raycastTarget = false;
+            AuraTheme.CreateIcon(reconnectBanner.transform, AuraIcons.Get(AuraIcon.WifiOff), new Vector2(-170f, 0f), 24f, AuraTheme.Amber);
+            AuraTheme.CreateText(reconnectBanner.transform, "RECONNECTING...", 18f, FontStyles.Bold, new Vector2(14f, 0f), new Vector2(320f, 36f), AuraTheme.Amber);
+            reconnectBanner.SetActive(false);
+
+            // Connection lost overlay
+            RectTransform overlayRt = AuraTheme.MakeRect(root, "ConnectionLostOverlay");
+            overlayRt.anchorMin = Vector2.zero;
+            overlayRt.anchorMax = Vector2.one;
+            overlayRt.offsetMin = Vector2.zero;
+            overlayRt.offsetMax = Vector2.zero;
+            Image scrim = overlayRt.gameObject.AddComponent<Image>();
+            scrim.color = AuraTheme.Scrim;
+            lostOverlay = overlayRt.gameObject;
+
+            GameObject card = AuraTheme.CreatePanel(overlayRt, "Card",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero,
+                new Vector2(620f, 330f), AuraTheme.PanelFill, AuraTheme.WithAlpha(AuraTheme.Danger, 0.8f));
+            AuraTheme.CreateIcon(card.transform, AuraIcons.Get(AuraIcon.WifiOff), new Vector2(0f, 105f), 56f, AuraTheme.Danger);
+            AuraTheme.CreateText(card.transform, "CONNECTION LOST", 30f, FontStyles.Bold, new Vector2(0f, 48f), new Vector2(560f, 44f), AuraTheme.TextPrimary);
+            lostReasonText = AuraTheme.CreateText(card.transform, "", 18f, FontStyles.Normal, new Vector2(0f, 0f), new Vector2(540f, 56f), AuraTheme.TextSecondary);
+
+            AuraTheme.CreateButton(card.transform, "Btn_BackToMenu", "BACK TO MENU", new Vector2(-150f, -95f), new Vector2(260f, 64f),
+                AuraTheme.ButtonStyle.Primary, () => SceneSwitcher.LoadScene(SceneSwitcher.Scene.MainMenu), 20f);
+            AuraTheme.CreateButton(card.transform, "Btn_PlayOffline", "PLAY OFFLINE", new Vector2(150f, -95f), new Vector2(260f, 64f),
+                AuraTheme.ButtonStyle.Ghost, ContinueOffline, 20f);
+            lostOverlay.SetActive(false);
+        }
+
+        private void RefreshPingUI()
+        {
+            if (pingLabel == null || pingIcon == null) return;
+            Color c = pingMs < 90f ? AuraTheme.Success : (pingMs < 200f ? AuraTheme.Amber : AuraTheme.Danger);
+            pingLabel.text = Mathf.RoundToInt(pingMs) + " ms";
+            pingLabel.color = c;
+            pingIcon.color = c;
         }
 
         private void CreateScoreboardUI()
@@ -534,30 +654,15 @@ namespace AuraKitchen
 
         private IEnumerator ResetAndReturnToLobby()
         {
-            string url = $"{serverBaseUrl}/api/room/{ActiveRoomCode}/reset";
-            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+            if (!offlineMode && !string.IsNullOrEmpty(myToken))
             {
-                req.timeout = 6;
-                req.downloadHandler = new DownloadHandlerBuffer();
-                yield return req.SendWebRequest();
+                // Only the host's reset is accepted; guests just follow back to the lobby.
+                yield return AuraNet.Reset(serverBaseUrl, ActiveRoomCode, MySlotIndex, null);
             }
 
             // Flag so MainMenu automatically re-opens the active room lobby
             PlayerPrefs.SetInt("Aura_ReturnToLobby", 1);
             SceneSwitcher.LoadScene(SceneSwitcher.Scene.MainMenu);
         }
-
-        private IEnumerator GetRoomState(string code, Action<bool, string> onComplete)
-        {
-            string url = $"{serverBaseUrl}/api/room/{code}";
-            using (UnityWebRequest req = UnityWebRequest.Get(url))
-            {
-                req.timeout = 5;
-                yield return req.SendWebRequest();
-                bool ok = req.result == UnityWebRequest.Result.Success;
-                onComplete?.Invoke(ok, ok ? req.downloadHandler.text : req.error);
-            }
-        }
     }
 }
-

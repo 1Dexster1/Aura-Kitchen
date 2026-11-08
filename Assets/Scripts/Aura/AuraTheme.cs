@@ -13,23 +13,27 @@ namespace AuraKitchen
     /// </summary>
     public static class AuraTheme
     {
-        // ==================== PALETTE ====================
-        public static readonly Color Cyan      = new Color32(0x00, 0xE5, 0xFF, 0xFF);
-        public static readonly Color Amber     = new Color32(0xFF, 0xAA, 0x00, 0xFF);
-        public static readonly Color Gold      = new Color32(0xFF, 0xD7, 0x00, 0xFF);
-        public static readonly Color Success   = new Color32(0x2E, 0xD6, 0x7A, 0xFF);
-        public static readonly Color Danger    = new Color32(0xFF, 0x4D, 0x4D, 0xFF);
-        public static readonly Color Ember     = new Color32(0xFF, 0x3D, 0x00, 0xFF);
+        // ==================== PALETTE (cartoon: ink black + paper white) ====================
+        public static readonly Color Ink       = new Color32(0x0D, 0x0D, 0x10, 0xFF);
+        public static readonly Color Paper     = new Color32(0xF7, 0xF5, 0xF0, 0xFF);
 
-        public static readonly Color PanelFill   = new Color32(0x0E, 0x15, 0x24, 0xE6);
-        public static readonly Color PanelRaised = new Color32(0x17, 0x21, 0x36, 0xF0);
-        public static readonly Color PanelDeep   = new Color32(0x08, 0x0C, 0x16, 0xF5);
-        public static readonly Color Scrim       = new Color32(0x03, 0x05, 0x0A, 0xD9);
-        public static readonly Color Stroke      = new Color32(0x00, 0xE5, 0xFF, 0x59);
-        public static readonly Color StrokeSoft  = new Color32(0xFF, 0xFF, 0xFF, 0x26);
+        // "Cyan" is kept as a name so existing call sites keep compiling; it is now paper white.
+        public static readonly Color Cyan      = Paper;
+        public static readonly Color Amber     = new Color32(0xFF, 0xB8, 0x1C, 0xFF);
+        public static readonly Color Gold      = new Color32(0xFF, 0xD2, 0x3F, 0xFF);
+        public static readonly Color Success   = new Color32(0x4A, 0xDE, 0x80, 0xFF);
+        public static readonly Color Danger    = new Color32(0xFF, 0x5C, 0x5C, 0xFF);
+        public static readonly Color Ember     = new Color32(0xFF, 0x7A, 0x1A, 0xFF);
 
-        public static readonly Color TextPrimary   = new Color32(0xF2, 0xF6, 0xFF, 0xFF);
-        public static readonly Color TextSecondary = new Color32(0x9A, 0xA8, 0xC4, 0xFF);
+        public static readonly Color PanelFill   = new Color32(0x14, 0x14, 0x18, 0xF5);
+        public static readonly Color PanelRaised = new Color32(0x22, 0x22, 0x28, 0xFA);
+        public static readonly Color PanelDeep   = new Color32(0x0A, 0x0A, 0x0C, 0xFA);
+        public static readonly Color Scrim       = new Color32(0x05, 0x05, 0x07, 0xDB);
+        public static readonly Color Stroke      = new Color32(0xF7, 0xF5, 0xF0, 0xF2);
+        public static readonly Color StrokeSoft  = new Color32(0xF7, 0xF5, 0xF0, 0x55);
+
+        public static readonly Color TextPrimary   = Paper;
+        public static readonly Color TextSecondary = new Color32(0xB4, 0xB4, 0xBE, 0xFF);
 
         // ==================== CHEFS ====================
         public static readonly string[] ChefNames  = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
@@ -56,6 +60,9 @@ namespace AuraKitchen
         {
             get
             {
+                // Drop a TMP font asset at Assets/Resources/Fonts/AuraFont.asset to restyle the whole game.
+                if (cachedFont == null)
+                    cachedFont = Resources.Load<TMP_FontAsset>("Fonts/AuraFont");
                 if (cachedFont == null)
                     cachedFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
                 return cachedFont;
@@ -123,7 +130,7 @@ namespace AuraKitchen
                 {
                     float d = RoundedBoxSdf(x, y, TexSize * 0.5f - 0.5f, Radius);
                     float outer = 0.5f - d;
-                    float inner = 0.5f - (d + 2.2f);
+                    float inner = 0.5f - (d + 3.4f);
                     return Mathf.Clamp01(outer) - Mathf.Clamp01(inner);
                 });
             }
@@ -178,24 +185,12 @@ namespace AuraKitchen
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
 
-            if (shadow)
-            {
-                RectTransform sh = MakeRect(rt, "Shadow");
-                sh.anchorMin = Vector2.zero;
-                sh.anchorMax = Vector2.one;
-                sh.offsetMin = new Vector2(-22, -30);
-                sh.offsetMax = new Vector2(22, 14);
-                Image shImg = sh.gameObject.AddComponent<Image>();
-                shImg.sprite = SoftShadow;
-                shImg.type = Image.Type.Sliced;
-                shImg.color = new Color(0f, 0f, 0f, 0.55f);
-                shImg.raycastTarget = false;
-            }
-
             Image img = rt.gameObject.AddComponent<Image>();
             img.sprite = RoundedFill;
             img.type = Image.Type.Sliced;
             img.color = fill;
+
+            if (shadow) AddHardShadow(img.gameObject);
 
             if (accent.a > 0.001f)
             {
@@ -214,23 +209,42 @@ namespace AuraKitchen
             return rt.gameObject;
         }
 
+        /// <summary>Cartoon "sticker" shadow: solid, offset down-right, drawn behind the graphic.</summary>
+        public static void AddHardShadow(GameObject go)
+        {
+            Shadow sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.9f);
+            sh.effectDistance = new Vector2(5f, -6f);
+            sh.useGraphicAlpha = false;
+        }
+
         public enum ButtonStyle { Primary, Success, Danger, Ghost, Gold }
 
         public static void GetButtonColors(ButtonStyle style, out Color fill, out Color text, out Color accent)
         {
             switch (style)
             {
-                case ButtonStyle.Success:
-                    fill = new Color32(0x12, 0x8A, 0x4E, 0xF2); text = Color.white; accent = Success; break;
+                case ButtonStyle.Success: // the one loud call-to-action color
+                    fill = Amber; text = Ink; accent = Ink; break;
                 case ButtonStyle.Danger:
-                    fill = new Color32(0x7A, 0x1F, 0x2B, 0xEE); text = Color.white; accent = Danger; break;
+                    fill = Ink; text = Danger; accent = Danger; break;
                 case ButtonStyle.Gold:
-                    fill = new Color32(0x3A, 0x2A, 0x06, 0xF0); text = Gold; accent = Gold; break;
+                    fill = Ink; text = Gold; accent = Gold; break;
                 case ButtonStyle.Ghost:
-                    fill = new Color32(0x14, 0x1D, 0x30, 0xCC); text = TextSecondary; accent = StrokeSoft; break;
-                default:
-                    fill = new Color32(0x12, 0x3A, 0x5C, 0xF2); text = Color.white; accent = Cyan; break;
+                    fill = new Color32(0x14, 0x14, 0x18, 0xF0); text = Paper; accent = new Color32(0xF7, 0xF5, 0xF0, 0xA0); break;
+                default: // Primary: white sticker
+                    fill = Paper; text = Ink; accent = Ink; break;
             }
+        }
+
+        /// <summary>Maps the legacy per-button colors used by the lobby onto the cartoon styles.</summary>
+        public static ButtonStyle StyleFromColors(Color bg, Color text)
+        {
+            if (text.r > 0.9f && text.g > 0.7f && text.b < 0.35f) return ButtonStyle.Gold;
+            if (bg.g > 0.38f && bg.g > bg.r * 1.4f && bg.g > bg.b) return ButtonStyle.Success;
+            if (bg.r > 0.35f && bg.r > bg.g * 1.8f && bg.r > bg.b * 1.5f) return ButtonStyle.Danger;
+            if (bg.b < 0.28f && bg.r < 0.2f) return ButtonStyle.Ghost;
+            return ButtonStyle.Primary;
         }
 
         public static GameObject CreateButton(Transform parent, string name, string label, Vector2 pos, Vector2 size,
@@ -252,6 +266,7 @@ namespace AuraKitchen
             img.sprite = RoundedFill;
             img.type = Image.Type.Sliced;
             img.color = fill;
+            AddHardShadow(img.gameObject);
 
             RectTransform ring = MakeRect(rt, "Stroke");
             ring.anchorMin = Vector2.zero;
