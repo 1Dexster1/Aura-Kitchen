@@ -13,6 +13,7 @@ namespace AuraKitchen
         [Header("Squad Stage Config")]
         [SerializeField] private Vector3 stageCenter = new Vector3(0.95f, 0f, -4.2f);
         private const float BaseYRotation = 18f;
+        private const float NameplateHeight = 3.05f; // clear of the chef's head at 1.25x scale
 
         private GameObject stageRootObj;
         private SquadSlotData[] squadSlots = new SquadSlotData[4];
@@ -341,7 +342,7 @@ namespace AuraKitchen
             // 5. 3D Floating Nameplate Above Head (compact: 3 short lines, well above the head)
             GameObject tagObj = new GameObject("Overhead_3D_Tag");
             tagObj.transform.SetParent(stationRoot.transform, false);
-            tagObj.transform.localPosition = new Vector3(0, 2.5f, 0);
+            tagObj.transform.localPosition = new Vector3(0, NameplateHeight, 0);
 
             TextMeshPro tmp = tagObj.AddComponent<TextMeshPro>();
             if (AuraTheme.Font != null) tmp.font = AuraTheme.Font;
@@ -353,6 +354,16 @@ namespace AuraKitchen
             tmp.outlineWidth = 0.22f;
             tmp.outlineColor = new Color32(6, 10, 22, 255);
             tmp.rectTransform.sizeDelta = new Vector2(2.2f, 0.9f);
+
+            // Always draw the nameplate on top: the chef's own head/body must never hide it
+            Material tagMat = tmp.fontMaterial; // per-label instance
+            if (tagMat != null)
+            {
+                if (tagMat.HasProperty("unity_GUIZTestMode"))
+                    tagMat.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
+                tagMat.renderQueue = 4000;
+            }
+            tmp.sortingOrder = 50;
             data.overhead3DText = tmp;
 
             return data;
@@ -452,7 +463,7 @@ namespace AuraKitchen
 
             if (occupied && data.overhead3DText != null)
             {
-                data.overhead3DText.transform.localPosition = new Vector3(0f, 2.5f, 0f);
+                data.overhead3DText.transform.localPosition = new Vector3(0f, NameplateHeight, 0f);
             }
         }
 
