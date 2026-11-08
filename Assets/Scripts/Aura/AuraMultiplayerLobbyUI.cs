@@ -442,12 +442,35 @@ namespace AuraKitchen
             GameObject jBox = CreateGlassPanel(joinModalDialog, "Input_Container", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(0.5f, 0.5f), new Vector2(0, 5), new Vector2(340, 72), AuraTheme.PanelDeep);
 
+            // TMP_InputField needs a text viewport (and ideally a placeholder) when built at runtime,
+            // otherwise it can throw a NullReferenceException as soon as the dialog is activated.
+            RectTransform joinViewport = AuraTheme.MakeRect(jBox.transform, "Text Viewport");
+            joinViewport.anchorMin = Vector2.zero;
+            joinViewport.anchorMax = Vector2.one;
+            joinViewport.offsetMin = new Vector2(10f, 6f);
+            joinViewport.offsetMax = new Vector2(-10f, -7f);
+            joinViewport.gameObject.AddComponent<RectMask2D>();
+
+            TextMeshProUGUI ipTmp = CreateTMPText(joinViewport.gameObject, "", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66), AuraTheme.Gold);
+            ipTmp.rectTransform.anchorMin = Vector2.zero;
+            ipTmp.rectTransform.anchorMax = Vector2.one;
+            ipTmp.rectTransform.offsetMin = Vector2.zero;
+            ipTmp.rectTransform.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI ipPlaceholder = CreateTMPText(joinViewport.gameObject, "ABCD", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66),
+                new Color(AuraTheme.Gold.r, AuraTheme.Gold.g, AuraTheme.Gold.b, 0.35f));
+            ipPlaceholder.rectTransform.anchorMin = Vector2.zero;
+            ipPlaceholder.rectTransform.anchorMax = Vector2.one;
+            ipPlaceholder.rectTransform.offsetMin = Vector2.zero;
+            ipPlaceholder.rectTransform.offsetMax = Vector2.zero;
+
             joinCodeInput = jBox.AddComponent<TMP_InputField>();
+            joinCodeInput.targetGraphic = jBox.GetComponent<Image>();
+            joinCodeInput.textViewport = joinViewport;
+            joinCodeInput.textComponent = ipTmp;
+            joinCodeInput.placeholder = ipPlaceholder;
             joinCodeInput.characterLimit = 4;
             joinCodeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
-
-            TextMeshProUGUI ipTmp = CreateTMPText(jBox, "", 36, FontStyles.Bold, Vector2.zero, new Vector2(320, 66), AuraTheme.Gold);
-            joinCodeInput.textComponent = ipTmp;
 
             joinSubmitBtn = CreateStyledButton(joinModalDialog, "Btn_JoinSubmit", "Join Squad", new Vector2(0, -75), new Vector2(340, 64),
                 new Color32(0x12, 0x8A, 0x4E, 0xF5), Color.white, OnJoinSubmitClicked, 22).GetComponent<Button>();
@@ -608,6 +631,13 @@ namespace AuraKitchen
                     if (roomPollCoroutine != null) StopCoroutine(roomPollCoroutine);
                     roomPollCoroutine = StartCoroutine(HostPollRoomState());
                 }
+            }
+            else if (tabName == "join")
+            {
+                // Make sure the code dialog is drawn above everything else and ready for typing
+                if (joinModalDialog != null) joinModalDialog.transform.SetAsLastSibling();
+                if (joinSubmitBtn != null) joinSubmitBtn.interactable = true;
+                if (joinCodeInput != null) joinCodeInput.ActivateInputField();
             }
             else if (tabName == "solo")
             {
