@@ -169,42 +169,7 @@ namespace AuraKitchen
             backdropRoot = new GameObject("Aura_Lobby_Backdrop");
             backdropRoot.transform.position = stageCenter;
 
-            // Dark halftone ground that swallows the bright tile floor (tiled sprite: 8-unit tiles)
-            GameObject ground = new GameObject("Backdrop_Ground");
-            ground.transform.SetParent(backdropRoot.transform, false);
-            ground.transform.localPosition = new Vector3(0f, 0.02f, 0f);
-            ground.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            SpriteRenderer gr = ground.AddComponent<SpriteRenderer>();
-            gr.sprite = MakeHalftoneSprite();
-            gr.drawMode = SpriteDrawMode.Tiled;
-            gr.size = new Vector2(120f, 120f);
-            gr.sortingOrder = 0;
-            gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            gr.receiveShadows = false;
-
-            // Big faint kitchen icons floating behind the squad (billboarded in Update)
-            AuraIcon[] icons = { AuraIcon.ChefHat, AuraIcon.Cloche, AuraIcon.Flame, AuraIcon.Plate, AuraIcon.Star, AuraIcon.Clock, AuraIcon.Crown };
-            Vector3[] spots =
-            {
-                new Vector3(-7.5f, 3.4f, 7.5f), new Vector3(-4.2f, 5.2f, 9.5f), new Vector3(-0.5f, 3.0f, 10.5f),
-                new Vector3(3.6f, 5.0f, 9.5f), new Vector3(7.2f, 3.6f, 7.8f), new Vector3(-9.5f, 5.4f, 4.5f), new Vector3(9.6f, 5.4f, 4.8f)
-            };
-            float[] sizes = { 3.2f, 2.4f, 3.0f, 2.6f, 2.2f, 2.0f, 2.2f };
-
-            for (int i = 0; i < icons.Length; i++)
-            {
-                GameObject go = new GameObject("Backdrop_Icon_" + icons[i]);
-                go.transform.SetParent(backdropRoot.transform, false);
-                go.transform.localPosition = spots[i];
-                go.transform.localScale = Vector3.one * sizes[i];
-                SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = AuraIcons.Get(icons[i]);
-                sr.color = new Color(1f, 0.78f, 0.45f, 0.18f);
-                sr.sortingOrder = 2;
-                sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                backdropIcons.Add(go.transform);
-                backdropIconBase.Add(spots[i]);
-            }
+            // the painted kitchen set (AuraMenuBackdrop) is the backdrop now; nothing else to build here
         }
 
         private void EnterCartoonCamera()
@@ -218,7 +183,7 @@ namespace AuraKitchen
                 cameraSaved = true;
             }
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = AuraTheme.Ink;
+            cam.backgroundColor = AuraMenuBackdrop.Wall;
         }
 
         private void RestoreCamera()
@@ -292,7 +257,7 @@ namespace AuraKitchen
 
             Renderer pRend = pedestal.GetComponent<Renderer>();
             Material pMat = new Material(GetDefaultShader());
-            Color pedCol = new Color(0.30f, 0.19f, 0.11f);
+            Color pedCol = new Color(0.64f, 0.48f, 0.24f);
             pMat.color = pedCol;
             if (pMat.HasProperty("_BaseColor")) pMat.SetColor("_BaseColor", pedCol);
             if (pMat.HasProperty("_Metallic")) pMat.SetFloat("_Metallic", 0f);
