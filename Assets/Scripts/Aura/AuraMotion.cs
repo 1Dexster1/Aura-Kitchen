@@ -8,6 +8,21 @@ namespace AuraKitchen
     /// <summary>Marks a cream paper board so text placed on it is rendered in chocolate ink.</summary>
     public class AuraBoard : MonoBehaviour { }
 
+    /// <summary>Shows this canvas only while the target object is active (menu decoration vs. lobby).</summary>
+    public class AuraVisibleWith : MonoBehaviour
+    {
+        public GameObject target;
+        private Canvas canvas;
+
+        private void LateUpdate()
+        {
+            if (canvas == null) canvas = GetComponent<Canvas>();
+            if (canvas == null || target == null) return;
+            bool v = target.activeInHierarchy;
+            if (canvas.enabled != v) canvas.enabled = v;
+        }
+    }
+
     /// <summary>Springy entrance: scales from ~0.4 to 1 with an overshoot, every time the object is enabled.</summary>
     public class AuraPopIn : MonoBehaviour
     {

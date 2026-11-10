@@ -93,6 +93,8 @@ namespace AuraKitchen
         private static AuraTheme.ButtonStyle PickStyle(string label)
         {
             string l = (label ?? "").ToLowerInvariant();
+            if (l.Contains("multi") || l.Contains("option") || l.Contains("setting"))
+                return AuraTheme.ButtonStyle.Gold;
             if (l.Contains("play") || l.Contains("start") || l.Contains("resume") || l.Contains("again") ||
                 l.Contains("host") || l.Contains("join") || l.Contains("create"))
                 return AuraTheme.ButtonStyle.Danger;
@@ -185,24 +187,13 @@ namespace AuraKitchen
         private static void SkinPanel(Image img)
         {
             if (img == null || img.GetComponent<AuraSkinned>() != null) return;
-            bool isTutorial = img.name == "Tutorial";
-            if (img.name != "Background" && !isTutorial) return;
+            if (img.name != "Background") return;
             if (img.GetComponentInParent<Selectable>() != null) return;
             Canvas canvas = img.GetComponentInParent<Canvas>();
             if (canvas == null) return;
 
-            // tutorial key caps: cream keys with an ink outline
-            if (img.name == "Background" && img.GetComponentInParent<TutorialBinding>() != null)
-            {
-                img.gameObject.AddComponent<AuraSkinned>();
-                img.sprite = AuraTheme.RoundedFace;
-                img.type = Image.Type.Sliced;
-                img.color = AuraTheme.Paper;
-                AuraTheme.AddHardShadow(img.gameObject, true);
-                AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
-                img.gameObject.AddComponent<AuraBoard>();
-                return;
-            }
+            // the tutorial keeps its original art (the instructions are baked into the sprite)
+            if (img.GetComponentInParent<TutorialBinding>() != null) return;
 
             // "DELIVERY" banners floating over the counters (world-space canvas)
             if (canvas.renderMode == RenderMode.WorldSpace)
@@ -241,7 +232,6 @@ namespace AuraKitchen
             AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
             AuraTheme.AddRing(img.rectTransform, "Rim", new Color(0.8f, 0.6f, 0.3f, 0.5f), 5f);
             img.gameObject.AddComponent<AuraBoard>();
-            if (isTutorial) img.gameObject.AddComponent<AuraPopIn>();
         }
 
         // ---------------------------------------------------------------- text
@@ -258,7 +248,7 @@ namespace AuraKitchen
 
             Color c = t.color;
             bool light = (c.r + c.g + c.b) > 1.6f;
-            bool onCream = (t.GetComponentInParent<AuraBoard>() != null || t.GetComponentInParent<TutorialUI>() != null) && t.GetComponentInParent<Button>() == null;
+            bool onCream = t.GetComponentInParent<AuraBoard>() != null && t.GetComponentInParent<Button>() == null;
             if (onCream)
             {
                 // cream boards carry chocolate lettering (keys and labels on the tutorial / option boards)
@@ -381,14 +371,16 @@ namespace AuraKitchen
             deco.offsetMax = Vector2.zero;
             deco.SetAsFirstSibling(); // behind buttons and logo
             deco.gameObject.AddComponent<Canvas>(); // isolates the floating food from the menu canvas
+            if (logo != null) deco.gameObject.AddComponent<AuraVisibleWith>().target = logo; // gone while the lobby is open
 
             string[] files = { "Bread", "Tomato", "CheeseSlice", "Cabbage", "MeatPattyCooked", "Plate" };
+            // sky band above the chefs so the floating food never sits on top of a character
             Vector2[] anchors =
             {
-                new Vector2(0.52f, 0.84f), new Vector2(0.92f, 0.80f), new Vector2(0.60f, 0.55f),
-                new Vector2(0.84f, 0.58f), new Vector2(0.70f, 0.25f), new Vector2(0.94f, 0.28f),
+                new Vector2(0.50f, 0.90f), new Vector2(0.60f, 0.80f), new Vector2(0.70f, 0.91f),
+                new Vector2(0.80f, 0.81f), new Vector2(0.90f, 0.91f), new Vector2(0.97f, 0.78f),
             };
-            float[] sizes = { 130f, 120f, 110f, 120f, 120f, 130f };
+            float[] sizes = { 96f, 88f, 84f, 90f, 92f, 86f };
             for (int i = 0; i < files.Length; i++)
             {
                 Sprite sp = LoadIcon(files[i]);
