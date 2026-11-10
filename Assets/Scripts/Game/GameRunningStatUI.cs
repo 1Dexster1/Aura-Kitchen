@@ -82,7 +82,7 @@ public class GameRunningStatUI : MonoBehaviour
         timeRemainingText.alignment = TextAlignmentOptions.Center;
         timeRemainingText.fontSize = 44;
         timeRemainingText.fontStyle = FontStyles.Normal;
-        timeRemainingText.color = AuraTheme.TextPrimary;
+        timeRemainingText.color = AuraTheme.Paper;
         timeRemainingText.outlineWidth = 0.3f;
         timeRemainingText.outlineColor = (Color32)AuraTheme.Ink;
         timeRemainingText.enableWordWrapping = false;

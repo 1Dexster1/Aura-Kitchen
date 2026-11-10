@@ -54,7 +54,7 @@ namespace AuraKitchen
         {
             if (gameTitleText != null)
             {
-                gameTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.Amber) + ">KITCHEN</color>";
+                gameTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.AmberText) + ">KITCHEN</color>";
             }
 
             if (shiftSummaryPanel != null)
@@ -146,7 +146,7 @@ namespace AuraKitchen
         {
             if (customerRatingText != null)
             {
-                customerRatingText.text = $"<color={AuraTheme.Hex(AuraTheme.Gold)}>\u2605</color> {e.AverageRating:0.0} <color={AuraTheme.Hex(AuraTheme.TextSecondary)}>/ 5.0</color>";
+                customerRatingText.text = $"<color={AuraTheme.Hex(AuraTheme.GoldText)}>\u2605</color> {e.AverageRating:0.0} <color={AuraTheme.Hex(AuraTheme.TextSecondary)}>/ 5.0</color>";
             }
         }
 
@@ -172,7 +172,7 @@ namespace AuraKitchen
             }
             else if (comboStreak > 1)
             {
-                comboMultiplierText.text = $"<color={AuraTheme.Hex(AuraTheme.Amber)}><b>x{comboStreak}</b> STREAK</color>";
+                comboMultiplierText.text = $"<color={AuraTheme.Hex(AuraTheme.AmberText)}><b>x{comboStreak}</b> STREAK</color>";
             }
             else
             {
@@ -231,7 +231,7 @@ namespace AuraKitchen
             {
                 if (rating >= 4.5f && plates >= 8)
                 {
-                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">3-STAR MICHELIN MASTER</color>";
+                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">3-STAR MICHELIN MASTER</color>";
                 }
                 else if (rating >= 3.5f && plates >= 4)
                 {
@@ -239,7 +239,7 @@ namespace AuraKitchen
                 }
                 else
                 {
-                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">CERTIFIED LINE COOK</color>";
+                    rankTitleText.text = "<color=" + AuraTheme.Hex(AuraTheme.AmberText) + ">CERTIFIED LINE COOK</color>";
                 }
             }
         }

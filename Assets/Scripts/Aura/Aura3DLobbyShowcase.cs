@@ -431,7 +431,7 @@ namespace AuraKitchen
 
             string[] slotRoles = { "HOST", "P2", "P3", "P4" };
             string colorHex = ColorUtility.ToHtmlStringRGB(SlotNeonColors[slot]);
-            string dim = ColorUtility.ToHtmlStringRGB(AuraTheme.TextSecondary);
+            string dim = ColorUtility.ToHtmlStringRGB(AuraTheme.LightDim);
 
             if (occupied)
             {

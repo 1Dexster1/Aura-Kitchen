@@ -22,6 +22,8 @@ public class GameEndUI : MonoBehaviour
     private TextMeshProUGUI modernScoreValText;
     private TextMeshProUGUI modernStreakValText;
     private TextMeshProUGUI modernEfficiencyValText;
+    private TextMeshProUGUI modernCoinsText;
+    private Coroutine showRoutine;
 
     private void Awake()
     {
@@ -59,12 +61,30 @@ public class GameEndUI : MonoBehaviour
     {
         if (e.newState == GameManager.State.GAME_END)
         {
-            ShowEndUI();
+            if (showRoutine != null) StopCoroutine(showRoutine);
+            showRoutine = StartCoroutine(ShowEndUIDelayed());
         }
         else
         {
+            if (showRoutine != null) { StopCoroutine(showRoutine); showRoutine = null; }
             HideEndUI();
         }
+    }
+
+    private void RefreshCoinsLine()
+    {
+        if (modernCoinsText == null) return;
+        int earned = AuraShowtime.Instance != null ? AuraShowtime.Instance.LastShiftCoins : 0;
+        modernCoinsText.text = "+" + earned + " coins this shift   |   Wallet: " + AuraProgress.Coins.ToString("N0");
+    }
+
+    private IEnumerator ShowEndUIDelayed()
+    {
+        // let the cinematic "TIME'S UP" beat play before the results card pops in
+        float delay = AuraShowtime.Instance != null ? AuraShowtime.Instance.OutroDelay : 0f;
+        if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+        ShowEndUI();
+        showRoutine = null;
     }
 
     private void ShowEndUI()
@@ -82,6 +102,7 @@ public class GameEndUI : MonoBehaviour
         {
             modernModalObj.SetActive(true);
             PopulateModernStats();
+            RefreshCoinsLine();
         }
     }
 
@@ -106,23 +127,23 @@ public class GameEndUI : MonoBehaviour
 
         if (AuraOnlineMultiplayerManager.Instance != null && AuraOnlineMultiplayerManager.Instance.IsOnlineActive)
         {
-            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">MULTIPLAYER CLASH COMPLETED</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">MULTIPLAYER CLASH COMPLETED</color>";
             rankTitle = AuraOnlineMultiplayerManager.Instance.GetChallengeWinnerSummary();
         }
         else if (plates >= 5)
         {
-            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">PERFORMANCE: 3-STAR EXCELLENCE</color>";
-            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">RANK: MASTER OF AURA</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">PERFORMANCE: 3-STAR EXCELLENCE</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">RANK: MASTER OF AURA</color>";
         }
         else if (plates >= 3)
         {
-            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">PERFORMANCE: 2-STAR GREAT</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">PERFORMANCE: 2-STAR GREAT</color>";
             rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">RANK: EXECUTIVE SOUS-CHEF</color>";
         }
         else if (plates >= 1)
         {
-            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">PERFORMANCE: 1-STAR PASSED</color>";
-            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.Amber) + ">RANK: CERTIFIED LINE COOK</color>";
+            ratingText = "<color=" + AuraTheme.Hex(AuraTheme.AmberText) + ">PERFORMANCE: 1-STAR PASSED</color>";
+            rankTitle = "<color=" + AuraTheme.Hex(AuraTheme.AmberText) + ">RANK: CERTIFIED LINE COOK</color>";
         }
         else
         {
@@ -158,7 +179,7 @@ public class GameEndUI : MonoBehaviour
             Vector2.zero, new Vector2(1040, 720), AuraTheme.PanelFill, AuraTheme.Stroke);
 
         // Title
-        CreateText(card, "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.Amber) + ">KITCHEN</color>  -  SHIFT COMPLETED", 32, FontStyles.Bold,
+        CreateText(card, "<color=" + AuraTheme.Hex(AuraTheme.Cyan) + ">AURA</color> <color=" + AuraTheme.Hex(AuraTheme.Danger) + ">KITCHEN</color>  -  SHIFT COMPLETED", 32, FontStyles.Bold,
             new Vector2(0, 310), new Vector2(900, 48), AuraTheme.TextPrimary);
 
         CreateText(card, "Restaurant Performance & Ratings", 18, FontStyles.Normal,
@@ -173,16 +194,22 @@ public class GameEndUI : MonoBehaviour
 
         // 4 Stat Cards
         CreateStatTile(card, "DISHES SERVED", "0 Dishes", new Vector2(-250, 45), AuraIcon.Cloche, AuraTheme.Cyan, out modernPlatesValText);
-        CreateStatTile(card, "TOTAL AURA SCORE", "0 PTS", new Vector2(250, 45), AuraIcon.Star, AuraTheme.Gold, out modernScoreValText);
+        CreateStatTile(card, "TOTAL AURA SCORE", "0 PTS", new Vector2(250, 45), AuraIcon.Star, AuraTheme.GoldText, out modernScoreValText);
         CreateStatTile(card, "MAX COMBO STREAK", "x1", new Vector2(-250, -85), AuraIcon.Flame, AuraTheme.Ember, out modernStreakValText);
         CreateStatTile(card, "KITCHEN EFFICIENCY", "100%", new Vector2(250, -85), AuraIcon.Check, AuraTheme.Success, out modernEfficiencyValText);
 
-        // Buttons
-        AuraTheme.CreateButton(card.transform, "Btn_PlayAgain", "Play Again", new Vector2(-220, -250), new Vector2(400, 80),
-            AuraTheme.ButtonStyle.Success, PlayAgainAction, 24, AuraIcons.Get(AuraIcon.Check));
+        // Coins earned this shift + wallet
+        modernCoinsText = CreateText(card, "", 26, FontStyles.Normal, new Vector2(0, -172), new Vector2(900, 40), AuraTheme.TextPrimary);
 
-        AuraTheme.CreateButton(card.transform, "Btn_MainMenu", "Main Menu", new Vector2(220, -250), new Vector2(400, 80),
-            AuraTheme.ButtonStyle.Ghost, MainMenuAction, 24, AuraIcons.Get(AuraIcon.Plate));
+        // Buttons
+        AuraTheme.CreateButton(card.transform, "Btn_PlayAgain", "Next Shift", new Vector2(-335, -258), new Vector2(300, 80),
+            AuraTheme.ButtonStyle.Success, PlayAgainAction, 28, AuraIcons.Get(AuraIcon.Check));
+
+        AuraTheme.CreateButton(card.transform, "Btn_Upgrades", "Upgrades", new Vector2(0, -258), new Vector2(300, 80),
+            AuraTheme.ButtonStyle.Gold, () => { AuraUpgradeShop.Open(); RefreshCoinsLine(); }, 28, AuraIcons.Get(AuraIcon.Coin));
+
+        AuraTheme.CreateButton(card.transform, "Btn_MainMenu", "Main Menu", new Vector2(335, -258), new Vector2(300, 80),
+            AuraTheme.ButtonStyle.Primary, MainMenuAction, 28, AuraIcons.Get(AuraIcon.Plate));
 
         modernModalObj.SetActive(false);
     }

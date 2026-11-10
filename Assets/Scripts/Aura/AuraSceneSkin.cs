@@ -153,10 +153,40 @@ namespace AuraKitchen
         private static void SkinPanel(Image img)
         {
             if (img == null || img.GetComponent<AuraSkinned>() != null) return;
-            if (img.name != "Background") return;
+            bool isTutorial = img.name == "Tutorial";
+            if (img.name != "Background" && !isTutorial) return;
             if (img.GetComponentInParent<Selectable>() != null) return;
             Canvas canvas = img.GetComponentInParent<Canvas>();
-            if (canvas == null || canvas.renderMode == RenderMode.WorldSpace) return;
+            if (canvas == null) return;
+
+            // tutorial key caps: cream keys with an ink outline
+            if (img.name == "Background" && img.GetComponentInParent<TutorialBinding>() != null)
+            {
+                img.gameObject.AddComponent<AuraSkinned>();
+                img.sprite = AuraTheme.RoundedFace;
+                img.type = Image.Type.Sliced;
+                img.color = AuraTheme.Paper;
+                AuraTheme.AddHardShadow(img.gameObject, true);
+                AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
+                img.gameObject.AddComponent<AuraBoard>();
+                return;
+            }
+
+            // "DELIVERY" banners floating over the counters (world-space canvas)
+            if (canvas.renderMode == RenderMode.WorldSpace)
+            {
+                if (img.transform.parent != null && img.transform.parent.name == "DeliveryBanner")
+                {
+                    img.gameObject.AddComponent<AuraSkinned>();
+                    Color c = img.color;
+                    bool good = c.g >= c.r;
+                    img.sprite = AuraTheme.RoundedFace;
+                    img.type = Image.Type.Sliced;
+                    img.color = good ? new Color32(0x4F, 0xD3, 0x5A, 0xFF) : new Color32(0xE8, 0x39, 0x2D, 0xFF);
+                    AuraTheme.AddHardShadow(img.gameObject);
+                }
+                return;
+            }
             Canvas root = canvas.rootCanvas;
 
             img.gameObject.AddComponent<AuraSkinned>();
@@ -175,9 +205,11 @@ namespace AuraKitchen
             img.sprite = AuraTheme.RoundedFace;
             img.type = Image.Type.Sliced;
             img.color = AuraTheme.PanelFill;
-            AuraTheme.AddHardShadow(img.gameObject);
+            AuraTheme.AddHardShadow(img.gameObject, true);
             AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
-            AuraTheme.AddRing(img.rectTransform, "Rim", new Color(1f, 0.86f, 0.62f, 0.22f), 5f);
+            AuraTheme.AddRing(img.rectTransform, "Rim", new Color(0.8f, 0.6f, 0.3f, 0.5f), 5f);
+            img.gameObject.AddComponent<AuraBoard>();
+            if (isTutorial) img.gameObject.AddComponent<AuraPopIn>();
         }
 
         // ---------------------------------------------------------------- text
@@ -194,7 +226,14 @@ namespace AuraKitchen
 
             Color c = t.color;
             bool light = (c.r + c.g + c.b) > 1.6f;
-            if (light)
+            bool onCream = (t.GetComponentInParent<AuraBoard>() != null || t.GetComponentInParent<TutorialUI>() != null) && t.GetComponentInParent<Button>() == null;
+            if (onCream)
+            {
+                // cream boards carry chocolate lettering (keys and labels on the tutorial / option boards)
+                if (light) t.color = AuraTheme.TextPrimary;
+                t.outlineWidth = 0f;
+            }
+            else if (light)
             {
                 t.outlineWidth = 0.26f;
                 t.outlineColor = (Color32)AuraTheme.Ink;
@@ -243,7 +282,7 @@ namespace AuraKitchen
                 bg.sprite = AuraTheme.RoundedFace;
                 bg.type = Image.Type.Sliced;
                 bg.color = AuraTheme.Paper;
-                AuraTheme.AddHardShadow(bg.gameObject);
+                AuraTheme.AddHardShadow(bg.gameObject, true);
                 AuraTheme.AddRing(bg.rectTransform, "Stroke", AuraTheme.Ink, 0f);
 
                 RectTransform awning = AuraTheme.MakeRect(bg.rectTransform, "Awning");

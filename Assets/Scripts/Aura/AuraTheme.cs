@@ -18,23 +18,30 @@ namespace AuraKitchen
         public static readonly Color Ink       = new Color32(0x3A, 0x1B, 0x0F, 0xFF); // outlines + deep shadow (the logo's chocolate brown)
         public static readonly Color Paper     = new Color32(0xFF, 0xF4, 0xDC, 0xFF); // cream text / paper
 
-        // "Cyan" is kept as a name so existing call sites keep compiling; it is now cream.
-        public static readonly Color Cyan      = Paper;
+        public static readonly Color Blue      = new Color32(0x3F, 0x95, 0xDB, 0xFF); // wall blue
+        // "Cyan" is kept as a name so existing call sites keep compiling; it is now the wall blue.
+        public static readonly Color Cyan      = Blue;
         public static readonly Color Amber     = new Color32(0xFF, 0xB0, 0x20, 0xFF);
         public static readonly Color Gold      = new Color32(0xFF, 0xD5, 0x4A, 0xFF);
         public static readonly Color Success   = new Color32(0x5B, 0xD3, 0x6B, 0xFF);
         public static readonly Color Danger    = new Color32(0xFF, 0x5A, 0x4A, 0xFF);
+        public static readonly Color GoldText  = new Color32(0xC9, 0x8A, 0x10, 0xFF); // gold that stays readable on cream
+        public static readonly Color AmberText = new Color32(0xD9, 0x70, 0x1A, 0xFF);
         public static readonly Color Ember     = new Color32(0xFF, 0x7A, 0x1A, 0xFF);
 
-        public static readonly Color PanelFill   = new Color32(0x3B, 0x24, 0x16, 0xF5); // dark walnut board
-        public static readonly Color PanelRaised = new Color32(0x55, 0x36, 0x20, 0xFA); // lighter plank
-        public static readonly Color PanelDeep   = new Color32(0x24, 0x14, 0x0B, 0xFA);
-        public static readonly Color Scrim       = new Color32(0x14, 0x0A, 0x05, 0xDB);
+        // Cream paper boards (order tickets, menus, pills). Text on them is chocolate brown.
+        public static readonly Color PanelFill   = new Color32(0xFF, 0xF4, 0xDC, 0xFF); // cream paper
+        public static readonly Color PanelRaised = new Color32(0xFF, 0xE3, 0xA9, 0xFF); // butter inset card
+        public static readonly Color PanelDeep   = new Color32(0xED, 0xCD, 0x8F, 0xFF); // tan well
+        public static readonly Color PaperLip    = new Color32(0xA4, 0x7A, 0x3C, 0xFF); // cardboard edge under paper
+        public static readonly Color Scrim       = new Color32(0x24, 0x12, 0x0A, 0xD2);
         public static readonly Color Stroke      = Ink;                                  // chunky dark outline
-        public static readonly Color StrokeSoft  = new Color32(0x1E, 0x10, 0x0A, 0xC0);
+        public static readonly Color StrokeSoft  = new Color32(0x3A, 0x1B, 0x0F, 0x99);
 
-        public static readonly Color TextPrimary   = Paper;
-        public static readonly Color TextSecondary = new Color32(0xE0, 0xC2, 0x96, 0xFF); // tan
+        public static readonly Color TextPrimary   = Ink;                                 // on cream
+        public static readonly Color TextSecondary = new Color32(0x8A, 0x5F, 0x34, 0xFF); // warm brown, on cream
+        public static readonly Color LightText     = Paper;                               // on dark / in-world
+        public static readonly Color LightDim      = new Color32(0xE0, 0xC2, 0x96, 0xFF); // tan, on dark / in-world
 
         // ==================== CHEFS ====================
         public static readonly string[] ChefNames  = { "Chef Ruby", "Chef Sapphire", "Chef Emerald", "Chef Amber" };
@@ -225,7 +232,7 @@ namespace AuraKitchen
             img.type = Image.Type.Sliced;
             img.color = fill;
 
-            if (shadow) AddHardShadow(img.gameObject);
+            if (shadow) AddHardShadow(img.gameObject, true);
 
             if (framed)
             {
@@ -234,7 +241,7 @@ namespace AuraKitchen
                 // light inner rim = bevel highlight (only on dark outlines)
                 if (accent.a > 0.5f && accent.r + accent.g + accent.b < 1.2f)
                 {
-                    AddRing(rt, "Rim", new Color(1f, 0.86f, 0.62f, 0.22f), 4f);
+                    AddRing(rt, "Rim", new Color(0.8f, 0.6f, 0.3f, 0.5f), 5f);
                 }
 
                 // rivets on big boards
@@ -252,7 +259,7 @@ namespace AuraKitchen
                         rv.sizeDelta = new Vector2(8f, 8f);
                         Image rvImg = rv.gameObject.AddComponent<Image>();
                         rvImg.sprite = Dot;
-                        rvImg.color = new Color(0.97f, 0.78f, 0.5f, 0.55f);
+                        rvImg.color = new Color(0.23f, 0.11f, 0.06f, 0.45f);
                         rvImg.raycastTarget = false;
                     }
                 }
@@ -277,8 +284,21 @@ namespace AuraKitchen
         }
 
         /// <summary>Cartoon "sticker" shadow: solid, offset down-right, drawn behind the graphic.</summary>
-        public static void AddHardShadow(GameObject go)
+        public static void AddHardShadow(GameObject go, bool paper = false)
         {
+            if (paper)
+            {
+                // cardboard edge, then the ink outline beyond it (Shadow stacks: last added sits furthest back)
+                Shadow lip = go.AddComponent<Shadow>();
+                lip.effectColor = PaperLip;
+                lip.effectDistance = new Vector2(0f, -7f);
+                lip.useGraphicAlpha = false;
+                Shadow ink = go.AddComponent<Shadow>();
+                ink.effectColor = new Color(Ink.r, Ink.g, Ink.b, 0.9f);
+                ink.effectDistance = new Vector2(0f, -11f);
+                ink.useGraphicAlpha = false;
+                return;
+            }
             Shadow sh = go.AddComponent<Shadow>();
             sh.effectColor = new Color(0.06f, 0.03f, 0.01f, 0.55f);
             sh.effectDistance = new Vector2(0f, -7f);
@@ -453,7 +473,8 @@ namespace AuraKitchen
             if (Font != null) tmp.font = Font;
             tmp.text = text;
             tmp.fontSize = size;
-            tmp.fontStyle = style;
+            // Lilita One is already a heavy display face; fake-bolding it only smears the letters
+            tmp.fontStyle = (Font != null && Font.name.StartsWith("AuraFont")) ? (style & ~FontStyles.Bold) : style;
             tmp.alignment = align;
             tmp.color = color;
             tmp.raycastTarget = false;

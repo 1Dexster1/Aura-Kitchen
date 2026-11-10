@@ -103,6 +103,12 @@ namespace AuraKitchen
                 auraRoot.AddComponent<AuraGameMechanics>();
             }
 
+            // 6b. Showtime: cinematics, shift events, customer ratings, coins & upgrades
+            if (Object.FindObjectOfType<AuraShowtime>() == null)
+            {
+                auraRoot.AddComponent<AuraShowtime>();
+            }
+
             // 7. Aura Online Multiplayer Manager (Real-time network sync & challenge scoreboard)
             if (Object.FindObjectOfType<AuraOnlineMultiplayerManager>() == null)
             {

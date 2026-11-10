@@ -12,8 +12,8 @@ namespace AuraKitchen
         public static AuraGameMechanics Instance { get; private set; }
 
         public static bool IsAuraRushActive { get; private set; } = false;
-        public static float SpeedMultiplier => IsAuraRushActive ? 1.32f : 1.0f;
-        public static int ScoreMultiplier => IsAuraRushActive ? 2 : 1;
+        public static float SpeedMultiplier => (IsAuraRushActive ? 1.32f : 1.0f) * AuraShowtime.SpeedBonus * AuraUpgrades.SpeedMult;
+        public static int ScoreMultiplier => (IsAuraRushActive ? 2 : 1) * AuraShowtime.ScoreBonusMult;
 
         public int CurrentScore { get; private set; } = 0;
         public int ComboStreak { get; private set; } = 0;
@@ -145,10 +145,18 @@ namespace AuraKitchen
             else
             {
                 hypeMsg = $"PERFECT DISH! +{earned} PTS (+{bonusSec:0}s)";
-                hypeCol = AuraTheme.TextPrimary;
+                hypeCol = AuraTheme.Paper;
             }
 
             ShowHypeText(hypeMsg, hypeCol);
+            UpdateScoreDisplay();
+        }
+
+        /// <summary>Bonus score from shift events (VIP guests etc.).</summary>
+        public void AddBonusScore(int points)
+        {
+            CurrentScore += points;
+            ShowHypeText("+" + points + " BONUS!", AuraTheme.Gold);
             UpdateScoreDisplay();
         }
 
@@ -192,7 +200,7 @@ namespace AuraKitchen
         {
             if (scoreCardText != null)
             {
-                string comboStr = ComboStreak > 1 ? $" <color={AuraTheme.Hex(AuraTheme.Amber)}>(x{ComboStreak})</color>" : "";
+                string comboStr = ComboStreak > 1 ? $" <color={AuraTheme.Hex(AuraTheme.Danger)}>(x{ComboStreak})</color>" : "";
                 scoreCardText.text = $"AURA: <b>{CurrentScore:N0}</b>{comboStr}";
             }
         }
@@ -213,7 +221,7 @@ namespace AuraKitchen
 
             if (floatingHypeRect != null)
             {
-                floatingHypeRect.anchoredPosition = new Vector2(0, -110);
+                floatingHypeRect.anchoredPosition = new Vector2(0, -190);
             }
 
             float duration = 2.2f;
@@ -226,7 +234,7 @@ namespace AuraKitchen
 
                 if (floatingHypeRect != null)
                 {
-                    floatingHypeRect.anchoredPosition = new Vector2(0, -110 + progress * 25f);
+                    floatingHypeRect.anchoredPosition = new Vector2(0, -190 + progress * 25f);
                 }
 
                 if (progress > 0.65f)
@@ -261,7 +269,7 @@ namespace AuraKitchen
             floatingHypeRect.anchorMin = new Vector2(0.5f, 1f);
             floatingHypeRect.anchorMax = new Vector2(0.5f, 1f);
             floatingHypeRect.pivot = new Vector2(0.5f, 1f);
-            floatingHypeRect.anchoredPosition = new Vector2(0, -110);
+            floatingHypeRect.anchoredPosition = new Vector2(0, -190);
             floatingHypeRect.sizeDelta = new Vector2(900, 60);
 
             floatingHypeGroup = hypeObj.AddComponent<CanvasGroup>();
@@ -269,19 +277,23 @@ namespace AuraKitchen
             floatingHypeGroup.blocksRaycasts = false;
 
             floatingHypeText = hypeObj.AddComponent<TextMeshProUGUI>();
-            floatingHypeText.fontSize = 26;
-            floatingHypeText.fontStyle = FontStyles.Bold;
+            if (AuraTheme.Font != null) floatingHypeText.font = AuraTheme.Font;
+            floatingHypeText.fontSize = 40;
+            floatingHypeText.fontStyle = FontStyles.Normal;
+            floatingHypeText.outlineWidth = 0.3f;
+            floatingHypeText.outlineColor = (Color32)AuraTheme.Ink;
+            floatingHypeText.enableWordWrapping = false;
             floatingHypeText.alignment = TextAlignmentOptions.Center;
             floatingHypeText.raycastTarget = false;
 
             // 2. Persistent Aura Rush Top Banner
             auraRushBannerObj = AuraTheme.CreatePanel(mechanicsCanvasObj.transform, "AuraRushBanner",
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0, -68), new Vector2(700, 40),
-                AuraTheme.PanelFill, AuraTheme.Amber, false);
+                new Vector2(0, -96), new Vector2(760, 52),
+                new Color32(0xE8, 0x39, 0x2D, 0xFF), AuraTheme.Ink, false);
             auraRushBannerObj.GetComponent<Image>().raycastTarget = false;
-            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(-322, 0), 24f, AuraTheme.Ember);
-            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(322, 0), 24f, AuraTheme.Ember);
+            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(-350, 0), 32f, AuraTheme.Gold);
+            AuraTheme.CreateIcon(auraRushBannerObj.transform, AuraIcons.Get(AuraIcon.Flame), new Vector2(350, 0), 32f, AuraTheme.Gold);
 
             GameObject arTxtObj = new GameObject("Text");
             arTxtObj.transform.SetParent(auraRushBannerObj.transform, false);
@@ -291,8 +303,11 @@ namespace AuraKitchen
             artRect.sizeDelta = Vector2.zero;
 
             auraRushBannerText = arTxtObj.AddComponent<TextMeshProUGUI>();
-            auraRushBannerText.fontSize = 20;
-            auraRushBannerText.fontStyle = FontStyles.Bold;
+            if (AuraTheme.Font != null) auraRushBannerText.font = AuraTheme.Font;
+            auraRushBannerText.fontSize = 28;
+            auraRushBannerText.fontStyle = FontStyles.Normal;
+            auraRushBannerText.outlineWidth = 0.3f;
+            auraRushBannerText.outlineColor = (Color32)AuraTheme.Ink;
             auraRushBannerText.alignment = TextAlignmentOptions.Center;
             auraRushBannerText.color = AuraTheme.Gold;
             auraRushBannerText.raycastTarget = false;
@@ -315,7 +330,7 @@ namespace AuraKitchen
 
             scoreCardText = scTxtObj.AddComponent<TextMeshProUGUI>();
             if (AuraTheme.Font != null) scoreCardText.font = AuraTheme.Font;
-            scoreCardText.fontSize = 20;
+            scoreCardText.fontSize = 26;
             scoreCardText.alignment = TextAlignmentOptions.Center;
             scoreCardText.color = AuraTheme.TextPrimary;
             scoreCardText.raycastTarget = false;
