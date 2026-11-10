@@ -142,6 +142,7 @@ namespace AuraKitchen
             sImg.sprite = AuraTheme.RoundedFace;
             sImg.type = Image.Type.Sliced;
             sImg.color = AuraTheme.PanelFill;
+            AuraTheme.AddHardShadow(switchChefBtnObj, true);
 
             GameObject sRingObj = new GameObject("Stroke");
             sRingObj.transform.SetParent(switchChefBtnObj.transform, false);
@@ -176,16 +177,16 @@ namespace AuraKitchen
             tRect.sizeDelta = Vector2.zero;
 
             switchChefBtnText = txtObj.AddComponent<TextMeshProUGUI>();
-            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            TMP_FontAsset font = AuraTheme.Font;
             if (font != null)
             {
                 switchChefBtnText.font = font;
             }
             switchChefBtnText.text = "SWITCH CHEF (P1/P2)";
-            switchChefBtnText.fontSize = 17;
-            switchChefBtnText.fontStyle = FontStyles.Bold;
+            switchChefBtnText.fontSize = 22;
+            switchChefBtnText.fontStyle = FontStyles.Normal;
             switchChefBtnText.alignment = TextAlignmentOptions.Center;
-            switchChefBtnText.color = Color.white;
+            switchChefBtnText.color = AuraTheme.TextPrimary;
             switchChefBtnText.raycastTarget = false;
         }
 
@@ -194,7 +195,7 @@ namespace AuraKitchen
             if (switchChefBtnText != null && SoloChefController.Instance != null)
             {
                 int current = SoloChefController.Instance.ActiveChefIndex + 1;
-                switchChefBtnText.text = $"<color={AuraTheme.ChefHex(current - 1)}><b>{AuraTheme.ChefName(current - 1)}</b></color>  <size=70%><color={AuraTheme.Hex(AuraTheme.TextSecondary)}>TAP TO SWITCH</color></size>";
+                switchChefBtnText.text = $"<color={AuraTheme.ChefHex(current - 1)}>{AuraTheme.ChefName(current - 1)}</color>  <size=70%><color={AuraTheme.Hex(AuraTheme.TextSecondary)}>TAP TO SWITCH</color></size>";
             }
         }
 

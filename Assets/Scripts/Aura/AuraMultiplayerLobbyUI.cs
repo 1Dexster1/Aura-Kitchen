@@ -295,7 +295,7 @@ namespace AuraKitchen
             if (headerChefNameText != null)
             {
                 string name = PlayerPrefs.GetString("Aura_PlayerName", AuraTheme.ChefNames[0]);
-                headerChefNameText.text = $"CHEF: <color=#ffd700>{name}</color>";
+                headerChefNameText.text = $"CHEF: <color=#C98A10>{name}</color>";
             }
         }
 
@@ -329,11 +329,11 @@ namespace AuraKitchen
             hudTopLeftBar = CreateGlassPanel(hudRootObj, "HUD_TopLeft", new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(28, -24), new Vector2(380, 68), AuraTheme.PanelFill);
 
-            headerChefNameText = CreateTMPText(hudTopLeftBar, "CHEF: <color=#ffd700>Dexster</color>", 18, FontStyles.Bold,
+            headerChefNameText = CreateTMPText(hudTopLeftBar, "CHEF: <color=#C98A10>Dexster</color>", 18, FontStyles.Bold,
                 new Vector2(-60, 12), new Vector2(240, 26), Color.white);
             headerChefNameText.alignment = TextAlignmentOptions.Left;
 
-            CreateTMPText(hudTopLeftBar, "<color=#2ecc71>ONLINE</color> | aura.dexster.site", 13, FontStyles.Normal,
+            CreateTMPText(hudTopLeftBar, "<color=#2F9E44>ONLINE</color> | aura.dexster.site", 13, FontStyles.Normal,
                 new Vector2(-60, -14), new Vector2(240, 20), AuraTheme.TextSecondary).alignment = TextAlignmentOptions.Left;
 
             CreateStyledButton(hudTopLeftBar, "Btn_ChangeName", "Edit", new Vector2(135, 0), new Vector2(76, 44),
@@ -1097,6 +1097,8 @@ namespace AuraKitchen
 
         private TextMeshProUGUI CreateTMPText(GameObject parent, string text, float size, FontStyles style, Vector2 pos, Vector2 dimensions, Color color)
         {
+            // every lobby text sits on a cream board, so "white" means "ink" here
+            if (color == Color.white) color = AuraTheme.TextPrimary;
             return AuraTheme.CreateText(parent.transform, text, size, style, pos, dimensions, color);
         }
     }

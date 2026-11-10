@@ -5,6 +5,9 @@ namespace AuraKitchen
     /// <summary>Marks UI that has already been restyled so the scene skinner never touches it twice.</summary>
     public class AuraSkinned : MonoBehaviour { }
 
+    /// <summary>Marks a cream paper board so text placed on it is rendered in chocolate ink.</summary>
+    public class AuraBoard : MonoBehaviour { }
+
     /// <summary>Springy entrance: scales from ~0.4 to 1 with an overshoot, every time the object is enabled.</summary>
     public class AuraPopIn : MonoBehaviour
     {

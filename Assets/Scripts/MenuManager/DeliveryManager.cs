@@ -69,7 +69,7 @@ public class DeliveryManager : MonoBehaviour
                 if (HasOrder)
                 {
                     // wait a bit for the next order to spawn
-                    float nextOrderInterval = UnityEngine.Random.Range(orderSpawnIntervalMin, orderSpawnIntervalMax);
+                    float nextOrderInterval = UnityEngine.Random.Range(orderSpawnIntervalMin, orderSpawnIntervalMax) / Mathf.Max(0.5f, AuraKitchen.AuraShowtime.SpawnRateMult);
                     OnCountdownStarted?.Invoke(this, nextOrderInterval);
                     yield return new WaitForSeconds(nextOrderInterval);
                 }
