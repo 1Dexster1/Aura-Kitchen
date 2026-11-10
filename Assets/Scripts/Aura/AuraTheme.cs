@@ -80,11 +80,14 @@ namespace AuraKitchen
                     {
                         try
                         {
-                            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(src, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+                            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(src, 72, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
                             if (fa != null)
                             {
                                 fa.name = "AuraFont (runtime)";
                                 if (lib != null) fa.fallbackFontAssetTable = new List<TMP_FontAsset> { lib };
+                                // Pre-bake the glyphs we use so no atlas rasterising happens mid-game (that was a hitch on WebGL)
+                                string missing;
+                                fa.TryAddCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;!?'\"-+*/()[]%$#&@_<>=|~\u2605", out missing);
                                 cachedFont = fa;
                             }
                         }
@@ -94,6 +97,34 @@ namespace AuraKitchen
                 }
                 return cachedFont;
             }
+        }
+
+        // ==================== SHARED OUTLINE MATERIAL ====================
+        // Setting TMP.outlineWidth on a text clones the material for that text (no batching, lots of draw calls).
+        // Every outlined label shares this one material instead.
+        private static Material outlineMat;
+        private static TMP_FontAsset outlineFor;
+
+        public static void SetOutline(TMP_Text t, bool on)
+        {
+            if (t == null) return;
+            TMP_FontAsset f = t.font;
+            if (f == null || f.material == null) return;
+            if (!on)
+            {
+                if (t.fontSharedMaterial != f.material) t.fontSharedMaterial = f.material;
+                return;
+            }
+            if (outlineMat == null || outlineFor != f)
+            {
+                outlineMat = new Material(f.material);
+                outlineMat.name = "AuraOutline";
+                outlineMat.EnableKeyword("OUTLINE_ON");
+                outlineMat.SetFloat("_OutlineWidth", 0.26f);
+                outlineMat.SetColor("_OutlineColor", Ink);
+                outlineFor = f;
+            }
+            if (t.fontSharedMaterial != outlineMat) t.fontSharedMaterial = outlineMat;
         }
 
         // ==================== PROCEDURAL SPRITES ====================
@@ -350,8 +381,7 @@ namespace AuraKitchen
                 if (label != null)
                 {
                     label.color = text;
-                    label.outlineWidth = 0.3f;
-                    label.outlineColor = (Color32)Ink;
+                    SetOutline(label, true);
                 }
             }
         }
@@ -456,8 +486,7 @@ namespace AuraKitchen
             tmp.fontSizeMax = fontSize;
             // dark text (Gold style) needs no outline; light text gets a dark one
             bool darkText = (textColor.r + textColor.g + textColor.b) < 1.4f;
-            tmp.outlineWidth = darkText ? 0f : 0.3f;
-            tmp.outlineColor = (Color32)Ink;
+            SetOutline(tmp, !darkText);
 
             return rt.gameObject;
         }
@@ -483,8 +512,7 @@ namespace AuraKitchen
             bool lightText = (color.r + color.g + color.b) > 1.6f;
             if (lightText && size >= 15f)
             {
-                tmp.outlineWidth = size >= 26f ? 0.26f : 0.28f;
-                tmp.outlineColor = (Color32)Ink;
+                SetOutline(tmp, true);
             }
             return tmp;
         }

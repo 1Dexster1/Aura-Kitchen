@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -24,8 +25,21 @@ namespace AuraKitchen
             SceneManager.sceneLoaded += (scene, mode) =>
             {
                 if (mode != LoadSceneMode.Single) return;
-                new GameObject("Aura_SceneSkin").AddComponent<AuraSceneSkin>();
+                Spawn();
             };
+        }
+
+        // The very first scene (the main menu) is already up by the time AfterSceneLoad runs; make sure it is skinned too.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void SkinFirstScene()
+        {
+            Spawn();
+        }
+
+        private static void Spawn()
+        {
+            if (FindObjectOfType<AuraSceneSkin>() != null) return;
+            new GameObject("Aura_SceneSkin").AddComponent<AuraSceneSkin>();
         }
 
         private IEnumerator Start()
@@ -34,6 +48,8 @@ namespace AuraKitchen
             Apply();
             // late-created UI (prefabs instantiated in Start of other scripts)
             yield return new WaitForSecondsRealtime(0.6f);
+            Apply();
+            yield return new WaitForSecondsRealtime(1.5f);
             Apply();
             Destroy(gameObject);
         }
@@ -44,22 +60,41 @@ namespace AuraKitchen
             Canvas.ForceUpdateCanvases();
             bool mainMenu = SceneManager.GetActiveScene().name == SceneSwitcher.Scene.MainMenu.ToString();
 
+            // one bad element must never stop the rest of the scene from being skinned
             Button[] buttons = FindObjectsOfType<Button>(true);
-            for (int i = 0; i < buttons.Length; i++) SkinButton(buttons[i], i);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                try { SkinButton(buttons[i], i); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] button " + (buttons[i] != null ? buttons[i].name : "?") + ": " + e.Message); }
+            }
 
             Image[] images = FindObjectsOfType<Image>(true);
-            for (int i = 0; i < images.Length; i++) SkinPanel(images[i]);
+            for (int i = 0; i < images.Length; i++)
+            {
+                try { SkinPanel(images[i]); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] panel " + (images[i] != null ? images[i].name : "?") + ": " + e.Message); }
+            }
 
             TextMeshProUGUI[] texts = FindObjectsOfType<TextMeshProUGUI>(true);
-            for (int i = 0; i < texts.Length; i++) SkinText(texts[i]);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                try { SkinText(texts[i]); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] text " + (texts[i] != null ? texts[i].name : "?") + ": " + e.Message); }
+            }
 
-            if (mainMenu) DecorateMainMenu();
+            if (mainMenu)
+            {
+                try { DecorateMainMenu(); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] menu decoration: " + e.Message); }
+            }
         }
 
         // ---------------------------------------------------------------- buttons
         private static AuraTheme.ButtonStyle PickStyle(string label)
         {
             string l = (label ?? "").ToLowerInvariant();
+            if (l.Contains("multi") || l.Contains("option") || l.Contains("setting"))
+                return AuraTheme.ButtonStyle.Gold;
             if (l.Contains("play") || l.Contains("start") || l.Contains("resume") || l.Contains("again") ||
                 l.Contains("host") || l.Contains("join") || l.Contains("create"))
                 return AuraTheme.ButtonStyle.Danger;
@@ -124,10 +159,9 @@ namespace AuraKitchen
 
             label.color = text;
             label.fontStyle = FontStyles.Normal;
-            label.outlineWidth = 0.3f;
-            label.outlineColor = (Color32)AuraTheme.Ink;
             label.raycastTarget = false;
             if (AuraTheme.Font != null) label.font = AuraTheme.Font;
+            AuraTheme.SetOutline(label, true);
             // keep the label above gloss/ring
             label.transform.SetAsLastSibling();
             if (label.transform.parent == rt)
@@ -153,24 +187,13 @@ namespace AuraKitchen
         private static void SkinPanel(Image img)
         {
             if (img == null || img.GetComponent<AuraSkinned>() != null) return;
-            bool isTutorial = img.name == "Tutorial";
-            if (img.name != "Background" && !isTutorial) return;
+            if (img.name != "Background") return;
             if (img.GetComponentInParent<Selectable>() != null) return;
             Canvas canvas = img.GetComponentInParent<Canvas>();
             if (canvas == null) return;
 
-            // tutorial key caps: cream keys with an ink outline
-            if (img.name == "Background" && img.GetComponentInParent<TutorialBinding>() != null)
-            {
-                img.gameObject.AddComponent<AuraSkinned>();
-                img.sprite = AuraTheme.RoundedFace;
-                img.type = Image.Type.Sliced;
-                img.color = AuraTheme.Paper;
-                AuraTheme.AddHardShadow(img.gameObject, true);
-                AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
-                img.gameObject.AddComponent<AuraBoard>();
-                return;
-            }
+            // the tutorial keeps its original art (the instructions are baked into the sprite)
+            if (img.GetComponentInParent<TutorialBinding>() != null) return;
 
             // "DELIVERY" banners floating over the counters (world-space canvas)
             if (canvas.renderMode == RenderMode.WorldSpace)
@@ -209,7 +232,6 @@ namespace AuraKitchen
             AuraTheme.AddRing(img.rectTransform, "Stroke", AuraTheme.Ink, 0f);
             AuraTheme.AddRing(img.rectTransform, "Rim", new Color(0.8f, 0.6f, 0.3f, 0.5f), 5f);
             img.gameObject.AddComponent<AuraBoard>();
-            if (isTutorial) img.gameObject.AddComponent<AuraPopIn>();
         }
 
         // ---------------------------------------------------------------- text
@@ -226,17 +248,16 @@ namespace AuraKitchen
 
             Color c = t.color;
             bool light = (c.r + c.g + c.b) > 1.6f;
-            bool onCream = (t.GetComponentInParent<AuraBoard>() != null || t.GetComponentInParent<TutorialUI>() != null) && t.GetComponentInParent<Button>() == null;
+            bool onCream = t.GetComponentInParent<AuraBoard>() != null && t.GetComponentInParent<Button>() == null;
             if (onCream)
             {
                 // cream boards carry chocolate lettering (keys and labels on the tutorial / option boards)
                 if (light) t.color = AuraTheme.TextPrimary;
-                t.outlineWidth = 0f;
+                AuraTheme.SetOutline(t, false);
             }
             else if (light)
             {
-                t.outlineWidth = 0.26f;
-                t.outlineColor = (Color32)AuraTheme.Ink;
+                AuraTheme.SetOutline(t, true);
             }
 
             // The order board heading becomes a candy pill so it reads as a game HUD tag
@@ -306,7 +327,7 @@ namespace AuraKitchen
                 if (AuraTheme.Font != null) t.font = AuraTheme.Font;
                 t.fontStyle = FontStyles.Normal;
                 t.color = AuraTheme.Ink;
-                t.outlineWidth = 0f;
+                AuraTheme.SetOutline(t, false);
             }
         }
 
@@ -336,6 +357,8 @@ namespace AuraKitchen
                     sh.effectDistance = new Vector2(0f, -14f);
                     sh.useGraphicAlpha = true;
                 }
+                // own canvas: the bobbing only re-batches the logo, not the whole menu
+                if (logo.GetComponent<Canvas>() == null) logo.AddComponent<Canvas>();
                 logo.AddComponent<AuraBob>();
                 AuraPopIn lp = logo.AddComponent<AuraPopIn>();
                 lp.duration = 0.8f;
@@ -347,14 +370,17 @@ namespace AuraKitchen
             deco.offsetMin = Vector2.zero;
             deco.offsetMax = Vector2.zero;
             deco.SetAsFirstSibling(); // behind buttons and logo
+            deco.gameObject.AddComponent<Canvas>(); // isolates the floating food from the menu canvas
+            if (logo != null) deco.gameObject.AddComponent<AuraVisibleWith>().target = logo; // gone while the lobby is open
 
             string[] files = { "Bread", "Tomato", "CheeseSlice", "Cabbage", "MeatPattyCooked", "Plate" };
+            // sky band above the chefs so the floating food never sits on top of a character
             Vector2[] anchors =
             {
-                new Vector2(0.52f, 0.84f), new Vector2(0.92f, 0.80f), new Vector2(0.60f, 0.55f),
-                new Vector2(0.84f, 0.58f), new Vector2(0.70f, 0.25f), new Vector2(0.94f, 0.28f),
+                new Vector2(0.50f, 0.90f), new Vector2(0.60f, 0.80f), new Vector2(0.70f, 0.91f),
+                new Vector2(0.80f, 0.81f), new Vector2(0.90f, 0.91f), new Vector2(0.97f, 0.78f),
             };
-            float[] sizes = { 130f, 120f, 110f, 120f, 120f, 130f };
+            float[] sizes = { 96f, 88f, 84f, 90f, 92f, 86f };
             for (int i = 0; i < files.Length; i++)
             {
                 Sprite sp = LoadIcon(files[i]);

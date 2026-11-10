@@ -1099,6 +1099,8 @@ namespace AuraKitchen
         {
             // every lobby text sits on a cream board, so "white" means "ink" here
             if (color == Color.white) color = AuraTheme.TextPrimary;
+            else if (color == AuraTheme.Gold) color = AuraTheme.GoldText;
+            else if (color == AuraTheme.Danger) color = new Color32(0xD6, 0x38, 0x2B, 0xFF);
             return AuraTheme.CreateText(parent.transform, text, size, style, pos, dimensions, color);
         }
     }

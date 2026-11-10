@@ -438,8 +438,8 @@ namespace AuraKitchen
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -160f),
                 new Vector2(420f, 46f), AuraTheme.PanelFill, AuraTheme.Amber, false);
             reconnectBanner.GetComponent<Image>().raycastTarget = false;
-            AuraTheme.CreateIcon(reconnectBanner.transform, AuraIcons.Get(AuraIcon.WifiOff), new Vector2(-170f, 0f), 24f, AuraTheme.Amber);
-            AuraTheme.CreateText(reconnectBanner.transform, "RECONNECTING...", 18f, FontStyles.Bold, new Vector2(14f, 0f), new Vector2(320f, 36f), AuraTheme.Amber);
+            AuraTheme.CreateIcon(reconnectBanner.transform, AuraIcons.Get(AuraIcon.WifiOff), new Vector2(-170f, 0f), 24f, AuraTheme.AmberText);
+            AuraTheme.CreateText(reconnectBanner.transform, "RECONNECTING...", 18f, FontStyles.Bold, new Vector2(14f, 0f), new Vector2(320f, 36f), AuraTheme.AmberText);
             reconnectBanner.SetActive(false);
 
             // Connection lost overlay
@@ -469,7 +469,7 @@ namespace AuraKitchen
         private void RefreshPingUI()
         {
             if (pingLabel == null || pingIcon == null) return;
-            Color c = pingMs < 90f ? AuraTheme.Success : (pingMs < 200f ? AuraTheme.Amber : AuraTheme.Danger);
+            Color c = pingMs < 90f ? new Color32(0x2F, 0x9E, 0x44, 0xFF) : (pingMs < 200f ? AuraTheme.AmberText : new Color32(0xD6, 0x38, 0x2B, 0xFF));
             pingLabel.text = Mathf.RoundToInt(pingMs) + " ms";
             pingLabel.color = c;
             pingIcon.color = c;
@@ -496,7 +496,7 @@ namespace AuraKitchen
             scoreboardRect = board.GetComponent<RectTransform>();
 
             // Header: trophy + title + room code
-            Image trophy = AuraTheme.CreateIcon(board.transform, AuraIcons.Get(AuraIcon.Trophy), Vector2.zero, 26f, AuraTheme.Gold);
+            Image trophy = AuraTheme.CreateIcon(board.transform, AuraIcons.Get(AuraIcon.Trophy), Vector2.zero, 26f, AuraTheme.GoldText);
             AuraTheme.PlaceTopLeft(trophy.rectTransform, 16f, 13f, 26f, 26f);
 
             TextMeshProUGUI title = AuraTheme.CreateText(board.transform, "KITCHEN CLASH", 17f, FontStyles.Bold,
@@ -642,9 +642,9 @@ namespace AuraKitchen
 
             if (isTie)
             {
-                return "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">TIE MATCH</color> - incredible teamwork!";
+                return "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">TIE MATCH</color> - incredible teamwork!";
             }
-            return "<color=" + AuraTheme.Hex(AuraTheme.Gold) + ">CHALLENGE WINNER</color> " + bestChef + " - " + maxDishes + " dishes delivered!";
+            return "<color=" + AuraTheme.Hex(AuraTheme.GoldText) + ">CHALLENGE WINNER</color> " + bestChef + " - " + maxDishes + " dishes delivered!";
         }
 
         public void ReturnToLobby()
