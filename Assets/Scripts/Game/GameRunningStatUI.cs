@@ -83,8 +83,7 @@ public class GameRunningStatUI : MonoBehaviour
         timeRemainingText.fontSize = 44;
         timeRemainingText.fontStyle = FontStyles.Normal;
         timeRemainingText.color = AuraTheme.Paper;
-        timeRemainingText.outlineWidth = 0.3f;
-        timeRemainingText.outlineColor = (Color32)AuraTheme.Ink;
+        AuraTheme.SetOutline(timeRemainingText, true);
         timeRemainingText.enableWordWrapping = false;
     }
 
@@ -106,6 +105,7 @@ public class GameRunningStatUI : MonoBehaviour
         }
 
         yield return null;
+        lastShownSeconds = int.MinValue;
 
         while (GameManager.Instance != null && !GameManager.Instance.GameRunningCountdownEnded)
         {
@@ -121,36 +121,38 @@ public class GameRunningStatUI : MonoBehaviour
         }
     }
 
+    private int lastShownSeconds = int.MinValue;
+
     private void UpdateTimerDisplay(int seconds)
     {
         if (timeRemainingText == null) return;
 
-        if (seconds <= 0)
+        // This runs every frame: only touch the UI when the displayed second changes (or while pulsing in the last 10s)
+        bool pulsing = seconds > 0 && seconds <= 10;
+        if (seconds != lastShownSeconds)
         {
-            timeRemainingText.text = "TIME'S UP";
-            timeRemainingText.fontSize = 32;
-            if (badgeBackground != null) badgeBackground.color = AuraTheme.Danger;
-            return;
+            lastShownSeconds = seconds;
+            if (seconds <= 0)
+            {
+                timeRemainingText.text = "TIME'S UP";
+                timeRemainingText.fontSize = 32;
+                if (badgeBackground != null) badgeBackground.color = AuraTheme.Danger;
+                timeRemainingText.rectTransform.localScale = Vector3.one;
+                return;
+            }
+
+            timeRemainingText.fontSize = 44;
+            timeRemainingText.text = (seconds / 60) + ":" + (seconds % 60).ToString("00");
+
+            Color face = seconds <= 10 ? AuraTheme.Danger : (seconds <= 30 ? AuraTheme.Amber : TimerBlue);
+            if (badgeBackground != null) badgeBackground.color = face;
+            if (!pulsing) timeRemainingText.rectTransform.localScale = Vector3.one;
         }
 
-        int minutes = seconds / 60;
-        int secondsRemainder = seconds % 60;
-        timeRemainingText.fontSize = 44;
-        timeRemainingText.text = string.Format("{0}:{1:00}", minutes, secondsRemainder);
-
-        Color face = TimerBlue;
-        float scale = 1f;
-        if (seconds <= 10)
+        if (pulsing)
         {
-            // urgency: red candy pill that throbs
-            face = AuraTheme.Danger;
-            scale = 1f + 0.07f * Mathf.Abs(Mathf.Sin(Time.time * 6f));
+            float scale = 1f + 0.07f * Mathf.Abs(Mathf.Sin(Time.time * 6f));
+            timeRemainingText.rectTransform.localScale = new Vector3(scale, scale, 1f);
         }
-        else if (seconds <= 30)
-        {
-            face = AuraTheme.Amber;
-        }
-        if (badgeBackground != null) badgeBackground.color = face;
-        timeRemainingText.rectTransform.localScale = new Vector3(scale, scale, 1f);
     }
 }

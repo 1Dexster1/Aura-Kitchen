@@ -280,8 +280,7 @@ namespace AuraKitchen
             if (AuraTheme.Font != null) floatingHypeText.font = AuraTheme.Font;
             floatingHypeText.fontSize = 40;
             floatingHypeText.fontStyle = FontStyles.Normal;
-            floatingHypeText.outlineWidth = 0.3f;
-            floatingHypeText.outlineColor = (Color32)AuraTheme.Ink;
+            AuraTheme.SetOutline(floatingHypeText, true);
             floatingHypeText.enableWordWrapping = false;
             floatingHypeText.alignment = TextAlignmentOptions.Center;
             floatingHypeText.raycastTarget = false;
@@ -306,8 +305,7 @@ namespace AuraKitchen
             if (AuraTheme.Font != null) auraRushBannerText.font = AuraTheme.Font;
             auraRushBannerText.fontSize = 28;
             auraRushBannerText.fontStyle = FontStyles.Normal;
-            auraRushBannerText.outlineWidth = 0.3f;
-            auraRushBannerText.outlineColor = (Color32)AuraTheme.Ink;
+            AuraTheme.SetOutline(auraRushBannerText, true);
             auraRushBannerText.alignment = TextAlignmentOptions.Center;
             auraRushBannerText.color = AuraTheme.Gold;
             auraRushBannerText.raycastTarget = false;

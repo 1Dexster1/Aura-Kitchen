@@ -94,7 +94,7 @@ namespace AuraKitchen
                 DeliveryManager.Instance.OnOrderDelivered -= OnDelivered;
             }
             ResetModifiers();
-            if (cine != null) Destroy(cine.gameObject);
+            DestroyCine();
             if (canvas != null) Destroy(canvas.gameObject);
             if (Instance == this) Instance = null;
         }
@@ -109,9 +109,12 @@ namespace AuraKitchen
         private void Update()
         {
             // letterbox bars glide in/out regardless of timeScale
-            barCurrent = Mathf.MoveTowards(barCurrent, barTarget, 260f * Time.unscaledDeltaTime);
-            if (barTop != null) barTop.sizeDelta = new Vector2(0f, barCurrent);
-            if (barBottom != null) barBottom.sizeDelta = new Vector2(0f, barCurrent);
+            if (!Mathf.Approximately(barCurrent, barTarget))
+            {
+                barCurrent = Mathf.MoveTowards(barCurrent, barTarget, 260f * Time.unscaledDeltaTime);
+                if (barTop != null) barTop.sizeDelta = new Vector2(0f, barCurrent);
+                if (barBottom != null) barBottom.sizeDelta = new Vector2(0f, barCurrent);
+            }
 
             if (eventPanel != null && eventPanel.activeSelf && eventTotal > 0f && eventBar != null)
             {
@@ -188,18 +191,32 @@ namespace AuraKitchen
 
         private Camera MakeCine(Camera main)
         {
+            if (cine != null) Destroy(cine.gameObject);
             GameObject go = new GameObject("Aura_CineCam");
             Camera c = go.AddComponent<Camera>();
             c.CopyFrom(main);
+            if (mainCam != null) c.cullingMask = mainMask; // main may already be masked out
             c.depth = main.depth + 10f;
             c.transform.SetPositionAndRotation(main.transform.position, main.transform.rotation);
+            // never render the scene twice: the gameplay camera draws nothing while the cinematic camera is live
+            // (it stays enabled so Camera.main keeps working for other scripts)
+            if (mainCam == null)
+            {
+                mainCam = main;
+                mainMask = main.cullingMask;
+                main.cullingMask = 0;
+            }
             return c;
         }
+
+        private Camera mainCam;
+        private int mainMask;
 
         private void DestroyCine()
         {
             if (cine != null) Destroy(cine.gameObject);
             cine = null;
+            if (mainCam != null) { mainCam.cullingMask = mainMask; mainCam = null; }
         }
 
         private IEnumerator IntroRoutine()
@@ -460,7 +477,6 @@ namespace AuraKitchen
             rt.sizeDelta = new Vector2(1200, 180);
             CanvasGroup cg = rt.gameObject.AddComponent<CanvasGroup>();
             TextMeshProUGUI t = AuraTheme.CreateText(rt, text, 120, FontStyles.Normal, Vector2.zero, new Vector2(1200, 170), col);
-            t.outlineWidth = 0.32f;
 
             float el = 0f;
             while (el < life && rt != null)
@@ -524,7 +540,6 @@ namespace AuraKitchen
             titleGroup = titleRect.gameObject.AddComponent<CanvasGroup>();
             titleGroup.alpha = 0f;
             titleText = AuraTheme.CreateText(titleRect, "SHIFT 1", 170, FontStyles.Normal, new Vector2(0, 40), new Vector2(1400, 200), AuraTheme.Gold);
-            titleText.outlineWidth = 0.32f;
             titleSub = AuraTheme.CreateText(titleRect, "", 40, FontStyles.Normal, new Vector2(0, -90), new Vector2(1400, 60), AuraTheme.Paper);
 
             // event banner (under the timer)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -24,8 +25,21 @@ namespace AuraKitchen
             SceneManager.sceneLoaded += (scene, mode) =>
             {
                 if (mode != LoadSceneMode.Single) return;
-                new GameObject("Aura_SceneSkin").AddComponent<AuraSceneSkin>();
+                Spawn();
             };
+        }
+
+        // The very first scene (the main menu) is already up by the time AfterSceneLoad runs; make sure it is skinned too.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void SkinFirstScene()
+        {
+            Spawn();
+        }
+
+        private static void Spawn()
+        {
+            if (FindObjectOfType<AuraSceneSkin>() != null) return;
+            new GameObject("Aura_SceneSkin").AddComponent<AuraSceneSkin>();
         }
 
         private IEnumerator Start()
@@ -34,6 +48,8 @@ namespace AuraKitchen
             Apply();
             // late-created UI (prefabs instantiated in Start of other scripts)
             yield return new WaitForSecondsRealtime(0.6f);
+            Apply();
+            yield return new WaitForSecondsRealtime(1.5f);
             Apply();
             Destroy(gameObject);
         }
@@ -44,16 +60,33 @@ namespace AuraKitchen
             Canvas.ForceUpdateCanvases();
             bool mainMenu = SceneManager.GetActiveScene().name == SceneSwitcher.Scene.MainMenu.ToString();
 
+            // one bad element must never stop the rest of the scene from being skinned
             Button[] buttons = FindObjectsOfType<Button>(true);
-            for (int i = 0; i < buttons.Length; i++) SkinButton(buttons[i], i);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                try { SkinButton(buttons[i], i); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] button " + (buttons[i] != null ? buttons[i].name : "?") + ": " + e.Message); }
+            }
 
             Image[] images = FindObjectsOfType<Image>(true);
-            for (int i = 0; i < images.Length; i++) SkinPanel(images[i]);
+            for (int i = 0; i < images.Length; i++)
+            {
+                try { SkinPanel(images[i]); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] panel " + (images[i] != null ? images[i].name : "?") + ": " + e.Message); }
+            }
 
             TextMeshProUGUI[] texts = FindObjectsOfType<TextMeshProUGUI>(true);
-            for (int i = 0; i < texts.Length; i++) SkinText(texts[i]);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                try { SkinText(texts[i]); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] text " + (texts[i] != null ? texts[i].name : "?") + ": " + e.Message); }
+            }
 
-            if (mainMenu) DecorateMainMenu();
+            if (mainMenu)
+            {
+                try { DecorateMainMenu(); }
+                catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] menu decoration: " + e.Message); }
+            }
         }
 
         // ---------------------------------------------------------------- buttons
@@ -124,10 +157,9 @@ namespace AuraKitchen
 
             label.color = text;
             label.fontStyle = FontStyles.Normal;
-            label.outlineWidth = 0.3f;
-            label.outlineColor = (Color32)AuraTheme.Ink;
             label.raycastTarget = false;
             if (AuraTheme.Font != null) label.font = AuraTheme.Font;
+            AuraTheme.SetOutline(label, true);
             // keep the label above gloss/ring
             label.transform.SetAsLastSibling();
             if (label.transform.parent == rt)
@@ -231,12 +263,11 @@ namespace AuraKitchen
             {
                 // cream boards carry chocolate lettering (keys and labels on the tutorial / option boards)
                 if (light) t.color = AuraTheme.TextPrimary;
-                t.outlineWidth = 0f;
+                AuraTheme.SetOutline(t, false);
             }
             else if (light)
             {
-                t.outlineWidth = 0.26f;
-                t.outlineColor = (Color32)AuraTheme.Ink;
+                AuraTheme.SetOutline(t, true);
             }
 
             // The order board heading becomes a candy pill so it reads as a game HUD tag
@@ -306,7 +337,7 @@ namespace AuraKitchen
                 if (AuraTheme.Font != null) t.font = AuraTheme.Font;
                 t.fontStyle = FontStyles.Normal;
                 t.color = AuraTheme.Ink;
-                t.outlineWidth = 0f;
+                AuraTheme.SetOutline(t, false);
             }
         }
 
@@ -336,6 +367,8 @@ namespace AuraKitchen
                     sh.effectDistance = new Vector2(0f, -14f);
                     sh.useGraphicAlpha = true;
                 }
+                // own canvas: the bobbing only re-batches the logo, not the whole menu
+                if (logo.GetComponent<Canvas>() == null) logo.AddComponent<Canvas>();
                 logo.AddComponent<AuraBob>();
                 AuraPopIn lp = logo.AddComponent<AuraPopIn>();
                 lp.duration = 0.8f;
@@ -347,6 +380,7 @@ namespace AuraKitchen
             deco.offsetMin = Vector2.zero;
             deco.offsetMax = Vector2.zero;
             deco.SetAsFirstSibling(); // behind buttons and logo
+            deco.gameObject.AddComponent<Canvas>(); // isolates the floating food from the menu canvas
 
             string[] files = { "Bread", "Tomato", "CheeseSlice", "Cabbage", "MeatPattyCooked", "Plate" };
             Vector2[] anchors =
