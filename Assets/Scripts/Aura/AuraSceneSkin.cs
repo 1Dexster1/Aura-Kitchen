@@ -342,6 +342,7 @@ namespace AuraKitchen
         private static void DecorateMainMenu()
         {
             if (GameObject.Find("Aura_MenuDeco") != null) return;
+            AuraMenuBackdrop.Ensure();
             GameObject logo = GameObject.Find("GameLogo");
             Canvas canvas = logo != null ? logo.GetComponentInParent<Canvas>() : FindObjectOfType<Canvas>();
             if (canvas == null) return;
@@ -372,6 +373,20 @@ namespace AuraKitchen
             deco.SetAsFirstSibling(); // behind buttons and logo
             deco.gameObject.AddComponent<Canvas>(); // isolates the floating food from the menu canvas
             if (logo != null) deco.gameObject.AddComponent<AuraVisibleWith>().target = logo; // gone while the lobby is open
+
+            // "Chef <name>" chip, top-right (like the prototype) + coins
+            try
+            {
+                string who = PlayerPrefs.GetString("Aura_PlayerName", "").Trim();
+                if (who.Length == 0) who = "Chef";
+                GameObject chip = AuraTheme.CreatePanel(deco, "ChefChip", new Vector2(1f, 1f), new Vector2(1f, 1f),
+                    new Vector2(1f, 1f), new Vector2(-30f, -26f), new Vector2(380f, 64f), AuraTheme.PanelFill, AuraTheme.Ink, false);
+                chip.AddComponent<AuraBoard>();
+                AuraTheme.CreateIcon(chip.transform, AuraIcons.Get(AuraIcon.ChefHat), new Vector2(-150f, 0f), 40f, AuraTheme.AmberText);
+                AuraTheme.CreateText(chip.transform, who + "  •  " + AuraProgress.Coins + "c", 26, FontStyles.Normal,
+                    new Vector2(20f, 0f), new Vector2(290f, 50f), AuraTheme.TextPrimary);
+            }
+            catch (Exception e) { Debug.LogWarning("[AuraSceneSkin] chef chip: " + e.Message); }
 
             string[] files = { "Bread", "Tomato", "CheeseSlice", "Cabbage", "MeatPattyCooked", "Plate" };
             // sky band above the chefs so the floating food never sits on top of a character
