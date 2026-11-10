@@ -342,6 +342,7 @@ namespace AuraKitchen
         private static void DecorateMainMenu()
         {
             if (GameObject.Find("Aura_MenuDeco") != null) return;
+            AuraMenuBackdrop.Ensure();
             GameObject logo = GameObject.Find("GameLogo");
             Canvas canvas = logo != null ? logo.GetComponentInParent<Canvas>() : FindObjectOfType<Canvas>();
             if (canvas == null) return;
