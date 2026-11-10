@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.TextCore.LowLevel;
 
 namespace AuraKitchen
 {
@@ -14,8 +15,8 @@ namespace AuraKitchen
     public static class AuraTheme
     {
         // ==================== PALETTE (derived from the kitchen: walnut counters, cream tiles, wall blue) ====================
-        public static readonly Color Ink       = new Color32(0x1E, 0x10, 0x0A, 0xFF); // outlines + deep shadow
-        public static readonly Color Paper     = new Color32(0xFF, 0xF1, 0xD0, 0xFF); // cream text / paper
+        public static readonly Color Ink       = new Color32(0x3A, 0x1B, 0x0F, 0xFF); // outlines + deep shadow (the logo's chocolate brown)
+        public static readonly Color Paper     = new Color32(0xFF, 0xF4, 0xDC, 0xFF); // cream text / paper
 
         // "Cyan" is kept as a name so existing call sites keep compiling; it is now cream.
         public static readonly Color Cyan      = Paper;
@@ -64,7 +65,26 @@ namespace AuraKitchen
                 if (cachedFont == null)
                     cachedFont = Resources.Load<TMP_FontAsset>("Fonts/AuraFont");
                 if (cachedFont == null)
-                    cachedFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                {
+                    // Lilita One (OFL) shipped as a plain TTF; build a dynamic SDF atlas from it at runtime.
+                    Font src = Resources.Load<Font>("Fonts/AuraFontSource");
+                    TMP_FontAsset lib = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                    if (src != null)
+                    {
+                        try
+                        {
+                            TMP_FontAsset fa = TMP_FontAsset.CreateFontAsset(src, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+                            if (fa != null)
+                            {
+                                fa.name = "AuraFont (runtime)";
+                                if (lib != null) fa.fallbackFontAssetTable = new List<TMP_FontAsset> { lib };
+                                cachedFont = fa;
+                            }
+                        }
+                        catch (Exception e) { Debug.LogWarning("[AuraTheme] Could not build Aura font: " + e.Message); }
+                    }
+                    if (cachedFont == null) cachedFont = lib;
+                }
                 return cachedFont;
             }
         }
@@ -143,7 +163,7 @@ namespace AuraKitchen
                 {
                     float d = RoundedBoxSdf(x, y, TexSize * 0.5f - 0.5f, Radius);
                     float outer = 0.5f - d;
-                    float inner = 0.5f - (d + 3.4f);
+                    float inner = 0.5f - (d + 4.6f);
                     return Mathf.Clamp01(outer) - Mathf.Clamp01(inner);
                 });
             }
@@ -241,7 +261,7 @@ namespace AuraKitchen
             return rt.gameObject;
         }
 
-        private static Image AddRing(RectTransform parent, string name, Color color, float inset)
+        public static Image AddRing(RectTransform parent, string name, Color color, float inset)
         {
             RectTransform ring = MakeRect(parent, name);
             ring.anchorMin = Vector2.zero;
@@ -274,11 +294,11 @@ namespace AuraKitchen
             switch (style)
             {
                 case ButtonStyle.Success:
-                    fill = new Color32(0x4F, 0xC9, 0x5B, 0xFF); text = Paper; break;
+                    fill = new Color32(0x4F, 0xD3, 0x5A, 0xFF); text = Paper; break;
                 case ButtonStyle.Danger:
-                    fill = new Color32(0xE5, 0x53, 0x3C, 0xFF); text = Paper; break;
+                    fill = new Color32(0xE8, 0x39, 0x2D, 0xFF); text = Paper; break;
                 case ButtonStyle.Gold:
-                    fill = new Color32(0xFF, 0xC5, 0x3A, 0xFF); text = new Color32(0x4A, 0x2A, 0x10, 0xFF); break;
+                    fill = new Color32(0xFF, 0xC4, 0x2B, 0xFF); text = Paper; break;
                 case ButtonStyle.Ghost:
                     fill = new Color32(0x8B, 0x5A, 0x36, 0xFF); text = Paper; break;
                 default: // Primary: wall blue
@@ -286,7 +306,7 @@ namespace AuraKitchen
             }
         }
 
-        private static Color Lip(Color face)
+        public static Color Lip(Color face)
         {
             return new Color(face.r * 0.55f, face.g * 0.5f, face.b * 0.5f, 1f);
         }
@@ -310,7 +330,7 @@ namespace AuraKitchen
                 if (label != null)
                 {
                     label.color = text;
-                    label.outlineWidth = style == ButtonStyle.Gold ? 0f : 0.22f;
+                    label.outlineWidth = 0.3f;
                     label.outlineColor = (Color32)Ink;
                 }
             }
@@ -370,7 +390,7 @@ namespace AuraKitchen
             Image gloss = glossRt.gameObject.AddComponent<Image>();
             gloss.sprite = RoundedFill;
             gloss.type = Image.Type.Sliced;
-            gloss.color = new Color(1f, 1f, 1f, 0.2f);
+            gloss.color = new Color(1f, 1f, 1f, 0.3f);
             gloss.raycastTarget = false;
 
             // outline around lip + face
@@ -416,7 +436,7 @@ namespace AuraKitchen
             tmp.fontSizeMax = fontSize;
             // dark text (Gold style) needs no outline; light text gets a dark one
             bool darkText = (textColor.r + textColor.g + textColor.b) < 1.4f;
-            tmp.outlineWidth = darkText ? 0f : 0.22f;
+            tmp.outlineWidth = darkText ? 0f : 0.3f;
             tmp.outlineColor = (Color32)Ink;
 
             return rt.gameObject;
@@ -442,7 +462,7 @@ namespace AuraKitchen
             bool lightText = (color.r + color.g + color.b) > 1.6f;
             if (lightText && size >= 15f)
             {
-                tmp.outlineWidth = size >= 26f ? 0.2f : 0.24f;
+                tmp.outlineWidth = size >= 26f ? 0.26f : 0.28f;
                 tmp.outlineColor = (Color32)Ink;
             }
             return tmp;

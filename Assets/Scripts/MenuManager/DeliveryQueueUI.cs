@@ -17,6 +17,7 @@ public class DeliveryQueueUI : MonoBehaviour
     {
         DeliveryManager.Instance.OnOrderPlaced += DeliveryManager_OnOrderPlaced;
         DeliveryManager.Instance.OnOrderDelivered += DeliveryManager_OnOrderDelivered;
+        AuraKitchen.AuraSceneSkin.SkinTicket(orderTemplate);
         orderTemplate.SetActive(false);
     }
 
